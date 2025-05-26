@@ -27,8 +27,8 @@ import {
   Grid,
   Chip
 } from '@mui/material'
-import { sitesService } from '@/services'
-import { Site, CreateSiteDto, UpdateSiteDto, SiteStatus, region } from '@/services/sitesService'
+import { sitesService, Site, CreateSiteDto, UpdateSiteDto } from '@/services/sitesService'
+import { SiteStatus } from '@/services/sitesService'
 
 const SitesPage = () => {
   const [sites, setSites] = useState<Site[]>([])
@@ -182,8 +182,8 @@ const SitesPage = () => {
   return (
     <Box sx={{ p: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant='h4'>Gestion des Sites</Typography>
-        <Button variant='contained' color='primary' onClick={() => handleOpenDialog()}>
+        <Typography variant="h4">Gestion des Sites</Typography>
+        <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
           Ajouter un site
         </Button>
       </Box>
@@ -204,7 +204,7 @@ const SitesPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {sites.map(site => (
+                {sites.map((site) => (
                   <TableRow key={site.id}>
                     <TableCell>{site.id}</TableCell>
                     <TableCell>{site.name}</TableCell>
@@ -214,13 +214,17 @@ const SitesPage = () => {
                       {site.latitude}, {site.longitude}
                     </TableCell>
                     <TableCell>
-                      <Chip label={site.status} color={getStatusColor(site.status) as any} size='small' />
+                      <Chip
+                        label={site.status}
+                        color={getStatusColor(site.status) as any}
+                        size="small"
+                      />
                     </TableCell>
                     <TableCell>
-                      <Button size='small' onClick={() => handleOpenDialog(site)}>
+                      <Button size="small" onClick={() => handleOpenDialog(site)}>
                         Modifier
                       </Button>
-                      <Button size='small' color='error' onClick={() => handleDelete(site.id)}>
+                      <Button size="small" color="error" onClick={() => handleDelete(site.id)}>
                         Supprimer
                       </Button>
                     </TableCell>
@@ -232,14 +236,14 @@ const SitesPage = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth='md' fullWidth>
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{currentSite ? 'Modifier le site' : 'Ajouter un site'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
               <TextField
-                name='id'
-                label='ID du site'
+                name="id"
+                label="ID du site"
                 fullWidth
                 value={formData.id}
                 onChange={handleInputChange}
@@ -249,8 +253,8 @@ const SitesPage = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                name='name'
-                label='Nom du site'
+                name="name"
+                label="Nom du site"
                 fullWidth
                 value={formData.name}
                 onChange={handleInputChange}
@@ -258,31 +262,29 @@ const SitesPage = () => {
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <InputLabel>Région</InputLabel>
-              <Select
-                name='region'
-                label='Région'
+              <TextField
+                name="region"
+                label="Région"
                 fullWidth
                 value={formData.region}
                 onChange={handleInputChange}
                 required
-              >
-                <MenuItem value={region.LOME}>LOME</MenuItem>
-                <MenuItem value={region.MARITIME}>MARITIME</MenuItem>
-                <MenuItem value={region.PLATEAUX}>PLATEAUX</MenuItem>
-                <MenuItem value={region.CENTRALE}>CENTRALE</MenuItem>
-                <MenuItem value={region.KARA}>KARA</MenuItem>
-                <MenuItem value={region.DAPAONG}>DAPAONG</MenuItem>
-              </Select>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField name='zone' label='Zone' fullWidth value={formData.zone} onChange={handleInputChange} />
+              />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                name='latitude'
-                label='Latitude'
-                type='number'
+                name="zone"
+                label="Zone"
+                fullWidth
+                value={formData.zone}
+                onChange={handleInputChange}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                name="latitude"
+                label="Latitude"
+                type="number"
                 fullWidth
                 value={formData.latitude}
                 onChange={handleInputChange}
@@ -291,9 +293,9 @@ const SitesPage = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                name='longitude'
-                label='Longitude'
-                type='number'
+                name="longitude"
+                label="Longitude"
+                type="number"
                 fullWidth
                 value={formData.longitude}
                 onChange={handleInputChange}
@@ -303,7 +305,12 @@ const SitesPage = () => {
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Statut</InputLabel>
-                <Select name='status' value={formData.status} label='Statut' onChange={handleInputChange}>
+                <Select
+                  name="status"
+                  value={formData.status}
+                  label="Statut"
+                  onChange={handleInputChange}
+                >
                   <MenuItem value={SiteStatus.ACTIVE}>Actif</MenuItem>
                   <MenuItem value={SiteStatus.MAINTENANCE}>Maintenance</MenuItem>
                   <MenuItem value={SiteStatus.INACTIVE}>Inactif</MenuItem>
@@ -313,8 +320,8 @@ const SitesPage = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                name='oldBase'
-                label='Ancienne base'
+                name="oldBase"
+                label="Ancienne base"
                 fullWidth
                 value={formData.oldBase || ''}
                 onChange={handleInputChange}
@@ -322,8 +329,8 @@ const SitesPage = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                name='newBase'
-                label='Nouvelle base'
+                name="newBase"
+                label="Nouvelle base"
                 fullWidth
                 value={formData.newBase || ''}
                 onChange={handleInputChange}
@@ -333,7 +340,7 @@ const SitesPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Annuler</Button>
-          <Button onClick={handleSubmit} variant='contained' color='primary'>
+          <Button onClick={handleSubmit} variant="contained" color="primary">
             {currentSite ? 'Mettre à jour' : 'Ajouter'}
           </Button>
         </DialogActions>
