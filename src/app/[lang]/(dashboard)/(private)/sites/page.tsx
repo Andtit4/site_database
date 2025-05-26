@@ -27,8 +27,8 @@ import {
   Grid,
   Chip
 } from '@mui/material'
-import { sitesService, Site, CreateSiteDto, UpdateSiteDto } from '@/services/sitesService'
-import { SiteStatus } from '@/services/sitesService'
+import { sitesService } from '@/services'
+import { Site, CreateSiteDto, UpdateSiteDto, SiteStatus } from '@/services/sitesService'
 
 const SitesPage = () => {
   const [sites, setSites] = useState<Site[]>([])
