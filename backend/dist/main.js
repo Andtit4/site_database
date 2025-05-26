@@ -14,7 +14,7 @@ async function bootstrap() {
         forbidNonWhitelisted: true,
     }));
     app.enableCors({
-        origin: ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:8082', 'http://localhost:5001', 'http://185.97.146.99:5000', 'http://185.97.146.99:5001', 'https://site-info-xi.vercel.app'],
+        origin: ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:8082', 'http://localhost:5001', 'http://185.97.146.99:5000', 'http://185.97.146.99:5001', 'https://site-info-xi.vercel.app'],
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         credentials: true,
         allowedHeaders: ['Content-Type', 'Authorization'],
