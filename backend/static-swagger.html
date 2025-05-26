@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Site Info API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui.css">
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+        
+        *,
+        *:before,
+        *:after {
+            box-sizing: inherit;
+        }
+        
+        body {
+            margin: 0;
+            background: #fafafa;
+        }
+        
+        .swagger-ui .topbar {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = function() {
+            // Définition du modèle Swagger
+            const specObject = {
+                "openapi": "3.0.0",
+                "info": {
+                    "title": "Site Info API",
+                    "description": "API de gestion des sites, équipements et équipes de maintenance",
+                    "version": "1.0"
+                },
+                "tags": [{
+                    "name": "auth",
+                    "description": "Authentification et gestion des utilisateurs"
+                }, {
+                    "name": "sites",
+                    "description": "Gestion des sites"
+                }, {
+                    "name": "equipment",
+                    "description": "Gestion des équipements"
+                }, {
+                    "name": "teams",
+                    "description": "Gestion des équipes"
+                }, {
+                    "name": "departments",
+                    "description": "Gestion des départements"
+                }, {
+                    "name": "specifications",
+                    "description": "Spécifications des équipements"
+                }],
+                "components": {
+                    "securitySchemes": {
+                        "bearerAuth": {
+                            "type": "http",
+                            "scheme": "bearer",
+                            "bearerFormat": "JWT"
+                        }
+                    }
+                },
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "paths": {
+                    "/api/auth/login": {
+                        "post": {
+                            "tags": ["auth"],
+                            "summary": "Connexion utilisateur",
+                            "description": "Permet à un utilisateur de se connecter et obtenir un token JWT",
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "username": {
+                                                    "type": "string",
+                                                    "example": "admin"
+                                                },
+                                                "password": {
+                                                    "type": "string",
+                                                    "example": "Admin123!"
+                                                }
+                                            },
+                                            "required": ["username", "password"]
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "200": {
+                                    "description": "Connexion réussie, retourne un token JWT",
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "access_token": {
+                                                        "type": "string"
+                                                    },
+                                                    "user": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "string"
+                                                            },
+                                                            "username": {
+                                                                "type": "string"
+                                                            },
+                                                            "firstName": {
+                                                                "type": "string"
+                                                            },
+                                                            "lastName": {
+                                                                "type": "string"
+                                                            },
+                                                            "email": {
+                                                                "type": "string"
+                                                            },
+                                                            "isAdmin": {
+                                                                "type": "boolean"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "401": {
+                                    "description": "Identifiants incorrects"
+                                }
+                            }
+                        }
+                    },
+                    "/api/auth/me": {
+                        "get": {
+                            "tags": ["auth"],
+                            "summary": "Profil utilisateur",
+                            "description": "Récupère les informations de l'utilisateur connecté",
+                            "security": [{
+                                "bearerAuth": []
+                            }],
+                            "responses": {
+                                "200": {
+                                    "description": "Profil utilisateur récupéré avec succès"
+                                },
+                                "401": {
+                                    "description": "Non autorisé - Token JWT manquant ou invalide"
+                                }
+                            }
+                        }
+                    },
+                    "/api/auth/admin/create": {
+                        "post": {
+                            "tags": ["auth"],
+                            "summary": "Créer un administrateur",
+                            "description": "Permet à un administrateur existant de créer un nouvel administrateur",
+                            "security": [{
+                                "bearerAuth": []
+                            }],
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "username": {
+                                                    "type": "string",
+                                                    "example": "admin2"
+                                                },
+                                                "password": {
+                                                    "type": "string",
+                                                    "example": "Admin123!"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "admin@example.com"
+                                                },
+                                                "firstName": {
+                                                    "type": "string",
+                                                    "example": "John"
+                                                },
+                                                "lastName": {
+                                                    "type": "string",
+                                                    "example": "Doe"
+                                                }
+                                            },
+                                            "required": ["username", "password", "email", "firstName", "lastName"]
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "201": {
+                                    "description": "Administrateur créé avec succès"
+                                },
+                                "401": {
+                                    "description": "Non autorisé - Token JWT manquant ou invalide"
+                                },
+                                "403": {
+                                    "description": "Interdit - L'utilisateur n'est pas administrateur"
+                                }
+                            }
+                        }
+                    },
+                    "/api/sites": {
+                        "get": {
+                            "tags": ["sites"],
+                            "summary": "Récupérer tous les sites",
+                            "description": "Retourne la liste des sites avec possibilité de filtrage",
+                            "security": [{
+                                "bearerAuth": []
+                            }],
+                            "parameters": [{
+                                "name": "search",
+                                "in": "query",
+                                "description": "Terme de recherche pour le nom ou la description du site",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }, {
+                                "name": "region",
+                                "in": "query",
+                                "description": "Filtre par région",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }, {
+                                "name": "status",
+                                "in": "query",
+                                "description": "Filtre par statut",
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": ["ACTIVE", "INACTIVE", "MAINTENANCE", "UNDER_CONSTRUCTION"]
+                                    }
+                                }
+                            }],
+                            "responses": {
+                                "200": {
+                                    "description": "Liste des sites récupérée avec succès"
+                                },
+                                "401": {
+                                    "description": "Non autorisé"
+                                }
+                            }
+                        },
+                        "post": {
+                            "tags": ["sites"],
+                            "summary": "Créer un nouveau site",
+                            "description": "Ajoute un nouveau site dans la base de données",
+                            "security": [{
+                                "bearerAuth": []
+                            }],
+                            "requestBody": {
+                                "required": true,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "example": "SITE001"
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "Site de Douala"
+                                                },
+                                                "region": {
+                                                    "type": "string",
+                                                    "example": "Littoral"
+                                                },
+                                                "longitude": {
+                                                    "type": "number",
+                                                    "example": 9.707237
+                                                },
+                                                "latitude": {
+                                                    "type": "number",
+                                                    "example": 4.049946
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "enum": ["ACTIVE", "INACTIVE", "MAINTENANCE", "UNDER_CONSTRUCTION"],
+                                                    "example": "ACTIVE"
+                                                },
+                                                "oldBase": {
+                                                    "type": "string",
+                                                    "example": "OLD-BASE-123"
+                                                },
+                                                "newBase": {
+                                                    "type": "string",
+                                                    "example": "NEW-BASE-456"
+                                                }
+                                            },
+                                            "required": ["id", "name", "region", "longitude", "latitude"]
+                                        }
+                                    }
+                                }
+                            },
+                            "responses": {
+                                "201": {
+                                    "description": "Site créé avec succès"
+                                },
+                                "400": {
+                                    "description": "Requête invalide"
+                                },
+                                "401": {
+                                    "description": "Non autorisé"
+                                }
+                            }
+                        }
+                    },
+                    "/api/equipment": {
+                        "get": {
+                            "tags": ["equipment"],
+                            "summary": "Récupérer tous les équipements",
+                            "description": "Retourne la liste des équipements avec possibilité de filtrage",
+                            "security": [{
+                                "bearerAuth": []
+                            }],
+                            "parameters": [{
+                                "name": "search",
+                                "in": "query",
+                                "description": "Terme de recherche pour le modèle ou le numéro de série",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }, {
+                                "name": "type",
+                                "in": "query",
+                                "description": "Filtre par type d'équipement",
+                                "schema": {
+                                    "type": "string",
+                                    "enum": ["ANTENNE", "ROUTEUR", "BATTERIE", "GÉNÉRATEUR", "REFROIDISSEMENT", "SHELTER", "PYLÔNE", "SÉCURITÉ"]
+                                }
+                            }, {
+                                "name": "status",
+                                "in": "query",
+                                "description": "Filtre par statut",
+                                "schema": {
+                                    "type": "string",
+                                    "enum": ["ACTIF", "MAINTENANCE", "INACTIF", "PLANIFIÉ", "EN_INSTALLATION"]
+                                }
+                            }],
+                            "responses": {
+                                "200": {
+                                    "description": "Liste des équipements récupérée avec succès"
+                                },
+                                "401": {
+                                    "description": "Non autorisé"
+                                }
+                            }
+                        }
+                    },
+                    "/api/departments": {
+                        "get": {
+                            "tags": ["departments"],
+                            "summary": "Récupérer tous les départements",
+                            "description": "Retourne la liste des départements",
+                            "security": [{
+                                "bearerAuth": []
+                            }],
+                            "responses": {
+                                "200": {
+                                    "description": "Liste des départements récupérée avec succès"
+                                },
+                                "401": {
+                                    "description": "Non autorisé"
+                                }
+                            }
+                        }
+                    },
+                    "/api/teams": {
+                        "get": {
+                            "tags": ["teams"],
+                            "summary": "Récupérer toutes les équipes",
+                            "description": "Retourne la liste des équipes",
+                            "security": [{
+                                "bearerAuth": []
+                            }],
+                            "responses": {
+                                "200": {
+                                    "description": "Liste des équipes récupérée avec succès"
+                                },
+                                "401": {
+                                    "description": "Non autorisé"
+                                }
+                            }
+                        }
+                    },
+                    "/api/specifications": {
+                        "get": {
+                            "tags": ["specifications"],
+                            "summary": "Récupérer toutes les spécifications",
+                            "description": "Retourne la liste des spécifications par type d'équipement",
+                            "security": [{
+                                "bearerAuth": []
+                            }],
+                            "responses": {
+                                "200": {
+                                    "description": "Liste des spécifications récupérée avec succès"
+                                },
+                                "401": {
+                                    "description": "Non autorisé"
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Configuration de l'interface Swagger UI
+            const ui = SwaggerUIBundle({
+                spec: specObject,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                docExpansion: "none",
+                tagsSorter: "alpha",
+                operationsSorter: "alpha",
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 1,
+                displayRequestDuration: true
+            });
+
+            window.ui = ui;
+        };
+    </script>
+</body>
+
+</html>
