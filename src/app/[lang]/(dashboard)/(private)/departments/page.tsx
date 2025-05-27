@@ -30,7 +30,8 @@ import {
 } from '@mui/material'
 import { departmentsService, equipmentService } from '@/services'
 import { Department, DepartmentType, CreateDepartmentDto, UpdateDepartmentDto } from '@/services/departmentsService'
-import { EquipmentType } from '@/services/equipmentService'
+import { EquipmentTypes } from '@/services/equipmentService'
+import notificationService from '@/services/notificationService'
 
 const DepartmentsPage = () => {
   const [departments, setDepartments] = useState<Department[]>([])
@@ -113,10 +114,20 @@ const DepartmentsPage = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target
-    setFormData({
-      ...formData,
-      [name as string]: value
-    })
+    
+    // Traitement spécial pour contactPhone: convertir en nombre ou undefined
+    if (name === 'contactPhone') {
+      const phoneValue = value as string;
+      setFormData({
+        ...formData,
+        contactPhone: phoneValue && phoneValue.trim() !== '' ? Number(phoneValue) : undefined
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name as string]: value
+      });
+    }
   }
 
   const handleSwitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,28 +149,74 @@ const DepartmentsPage = () => {
       if (currentDepartment) {
         // Mise à jour du département
         const updateData: UpdateDepartmentDto = { ...formData }
-        await departmentsService.updateDepartment(currentDepartment.id, updateData)
+        console.log("Mise à jour du département avec:", updateData);
+        await departmentsService.updateDepartment(currentDepartment.id, updateData);
+        
+        // Notification de mise à jour
+        try {
+          notificationService.notifyDepartmentUpdated(formData.name);
+        } catch (notifError) {
+          console.error('Erreur lors de la création de la notification:', notifError);
+        }
       } else {
         // Création d'un nouveau département
-        await departmentsService.createDepartment(formData)
+        console.log("Création d'un nouveau département avec:", formData);
+        await departmentsService.createDepartment(formData);
+        
+        // Notification de création
+        try {
+          notificationService.notifyDepartmentCreated(formData.name);
+        } catch (notifError) {
+          console.error('Erreur lors de la création de la notification:', notifError);
+        }
       }
       
-      handleCloseDialog()
-      fetchDepartments() // Recharger la liste
-    } catch (err) {
-      console.error('Erreur lors de l\'enregistrement du département:', err)
-      setError('Erreur lors de l\'enregistrement du département')
+      handleCloseDialog();
+      fetchDepartments(); // Recharger la liste
+    } catch (err: any) {
+      console.error('Erreur lors de l\'enregistrement du département:', err);
+      
+      // Afficher un message d'erreur approprié
+      const errorMessage = err.message || 'Erreur lors de l\'enregistrement du département';
+      setError(errorMessage);
+      
+      // Montrer l'erreur pendant 5 secondes puis effacer
+      setTimeout(() => {
+        setError(null);
+      }, 5000);
     }
   }
 
   const handleDelete = async (id: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce département?')) {
       try {
-        await departmentsService.deleteDepartment(id)
-        fetchDepartments() // Recharger la liste
-      } catch (err) {
-        console.error('Erreur lors de la suppression du département:', err)
-        setError('Erreur lors de la suppression du département')
+        // Récupérer le nom du département avant suppression pour la notification
+        const departmentToDelete = departments.find(dept => dept.id === id);
+        const departmentName = departmentToDelete ? departmentToDelete.name : 'Inconnu';
+        
+        await departmentsService.deleteDepartment(id);
+        
+        // Notification de succès
+        if (departmentToDelete) {
+          try {
+            notificationService.notifyDepartmentDeleted(departmentName);
+          } catch (notifError) {
+            console.error('Erreur lors de la création de la notification:', notifError);
+          }
+        }
+        
+        fetchDepartments(); // Recharger la liste
+      } catch (err: any) {
+        console.error('Erreur lors de la suppression du département:', err);
+        
+        // Afficher un message d'erreur approprié
+        const errorMessage = err.message || 'Erreur lors de la suppression du département';
+        setError(errorMessage);
+        
+        // Montrer l'erreur pendant 5 secondes puis effacer
+        setTimeout(() => {
+          setError(null);
+        }, 5000);
       }
     }
   }
@@ -299,10 +356,12 @@ const DepartmentsPage = () => {
               <TextField
                 name="contactPhone"
                 label="Téléphone de contact"
-                type="tel"
+                type="number"
                 fullWidth
                 value={formData.contactPhone || ''}
                 onChange={handleInputChange}
+                inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+                helperText="Entrez uniquement des chiffres"
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -335,14 +394,14 @@ const DepartmentsPage = () => {
                     </Box>
                   )}
                 >
-                  <MenuItem value={EquipmentType.ANTENNA}>Antennes</MenuItem>
-                  <MenuItem value={EquipmentType.ROUTER}>Routeurs</MenuItem>
-                  <MenuItem value={EquipmentType.BATTERY}>Batteries</MenuItem>
-                  <MenuItem value={EquipmentType.GENERATOR}>Générateurs</MenuItem>
-                  <MenuItem value={EquipmentType.COOLING}>Refroidissement</MenuItem>
-                  <MenuItem value={EquipmentType.SHELTER}>Shelters</MenuItem>
-                  <MenuItem value={EquipmentType.TOWER}>Pylônes</MenuItem>
-                  <MenuItem value={EquipmentType.SECURITY}>Sécurité</MenuItem>
+                  <MenuItem value={EquipmentTypes.ANTENNE}>Antennes</MenuItem>
+                  <MenuItem value={EquipmentTypes.ROUTEUR}>Routeurs</MenuItem>
+                  <MenuItem value={EquipmentTypes.BATTERIE}>Batteries</MenuItem>
+                  <MenuItem value={EquipmentTypes.GÉNÉRATEUR}>Générateurs</MenuItem>
+                  <MenuItem value={EquipmentTypes.REFROIDISSEMENT}>Refroidissement</MenuItem>
+                  <MenuItem value={EquipmentTypes.SHELTER}>Shelters</MenuItem>
+                  <MenuItem value={EquipmentTypes.PYLÔNE}>Pylônes</MenuItem>
+                  <MenuItem value={EquipmentTypes.SÉCURITÉ}>Sécurité</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+
+import { useRouter, useParams } from 'next/navigation'
+
 import {
   Box,
   Button,
@@ -14,7 +17,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -25,32 +27,74 @@ import {
   Select,
   MenuItem,
   Grid,
-  Chip
+  Chip,
+  FormControlLabel,
+  Switch,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Pagination
 } from '@mui/material'
-import { sitesService, Site, CreateSiteDto, UpdateSiteDto } from '@/services/sitesService'
-import { SiteStatus } from '@/services/sitesService'
+
+import type { SelectChangeEvent } from '@mui/material/Select'
+
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import SearchIcon from '@mui/icons-material/Search'
+import FilterListIcon from '@mui/icons-material/FilterList'
+
+import { sitesService } from '@/services'
+import type { Site, CreateSiteDto, UpdateSiteDto} from '@/services/sitesService';
+import { SiteStatus, region } from '@/services/sitesService'
+import siteSpecificationsService, { SiteTypes } from '@/services/siteSpecificationsService'
+
+// Nombre de sites par page
+const ITEMS_PER_PAGE = 10
 
 const SitesPage = () => {
   const [sites, setSites] = useState<Site[]>([])
+  const [filteredSites, setFilteredSites] = useState<Site[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [openDialog, setOpenDialog] = useState(false)
   const [currentSite, setCurrentSite] = useState<Site | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [siteToDelete, setSiteToDelete] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [specifications, setSpecifications] = useState<any[]>([]);
+  const [currentSpecification, setCurrentSpecification] = useState<any | null>(null);
+  const [page, setPage] = useState(1);
+  const [filterExpanded, setFilterExpanded] = useState(false);
+  
+  // Filtres
+  const [filterValues, setFilterValues] = useState({
+    search: '',
+    region: '',
+    status: '',
+    type: ''
+  });
+
   const [formData, setFormData] = useState<CreateSiteDto>({
     id: '',
     name: '',
-    region: '',
-    zone: '',
+    region: region.MARITIME,
     longitude: 0,
     latitude: 0,
-    status: SiteStatus.ACTIVE
+    status: SiteStatus.ACTIVE,
+    type: SiteTypes.TOUR,
+    specifications: {}
   })
+
+  const router = useRouter()
+  const params = useParams()
+  const lang = params.lang || 'fr'
 
   const fetchSites = async () => {
     try {
       setLoading(true)
-      const data = await sitesService.getAllSites()
+      const data = await sitesService.getAllSites(showDeleted)
+
       setSites(data)
+      applyFilters(data)
     } catch (err) {
       console.error('Erreur lors de la récupération des sites:', err)
       setError('Erreur lors du chargement des sites')
@@ -59,21 +103,110 @@ const SitesPage = () => {
     }
   }
 
+  const fetchSpecifications = async () => {
+    try {
+      const data = await siteSpecificationsService.getAllSiteSpecifications();
+
+      setSpecifications(data);
+    } catch (err) {
+      console.error('Erreur lors de la récupération des spécifications de sites:', err);
+    }
+  };
+
   useEffect(() => {
     fetchSites()
+    fetchSpecifications()
 
     // Ajouter un écouteur d'événement pour ouvrir le dialogue d'ajout depuis le menu
     const handleOpenAddDialog = () => {
       handleOpenDialog();
     };
 
-    window.addEventListener('openAddSiteDialog', handleOpenAddDialog);
+    // Ajouter un écouteur d'événement pour ouvrir le dialogue d'édition depuis la page de détails
+    const handleOpenEditDialog = (event: CustomEvent) => {
+      if (event.detail && event.detail.site) {
+        handleOpenDialog(event.detail.site);
+      }
+    };
 
-    // Nettoyer l'écouteur d'événement lors du démontage du composant
+    window.addEventListener('openAddSiteDialog', handleOpenAddDialog);
+    window.addEventListener('openSiteEditDialog', handleOpenEditDialog as EventListener);
+    
+    // Nettoyer les écouteurs d'événements lors du démontage du composant
     return () => {
       window.removeEventListener('openAddSiteDialog', handleOpenAddDialog);
+      window.removeEventListener('openSiteEditDialog', handleOpenEditDialog as EventListener);
     };
-  }, [])
+  }, [showDeleted])
+
+  // Lorsque le type de site change, récupérer les spécifications correspondantes
+  useEffect(() => {
+    if (formData.type) {
+      const spec = specifications.find(s => s.siteType === formData.type);
+
+      setCurrentSpecification(spec || null);
+      
+      // Réinitialiser les spécifications lorsque le type change
+      if (formData.specifications && Object.keys(formData.specifications).length > 0) {
+        setFormData({
+          ...formData,
+          specifications: {}
+        });
+      }
+    }
+  }, [formData.type, specifications]);
+
+  // Appliquer les filtres lors des changements
+  useEffect(() => {
+    applyFilters(sites);
+  }, [filterValues]);
+
+  // Gérer le changement de page
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
+  // Fonction pour filtrer les sites
+  const applyFilters = (sitesToFilter: Site[]) => {
+    let result = [...sitesToFilter];
+    
+    // Filtrer par recherche (nom, id, type)
+    if (filterValues.search) {
+      const searchTerm = filterValues.search.toLowerCase();
+
+      result = result.filter(site => 
+        site.name.toLowerCase().includes(searchTerm) || 
+        site.id.toLowerCase().includes(searchTerm) ||
+        (site.type && site.type.toLowerCase().includes(searchTerm))
+      );
+    }
+    
+    // Filtrer par région
+    if (filterValues.region) {
+      result = result.filter(site => site.region === filterValues.region);
+    }
+    
+    // Filtrer par statut
+    if (filterValues.status) {
+      result = result.filter(site => site.status === filterValues.status);
+    }
+    
+    // Filtrer par type
+    if (filterValues.type) {
+      result = result.filter(site => site.type === filterValues.type);
+    }
+    
+    setFilteredSites(result);
+    setPage(1); // Réinitialiser à la première page après filtrage
+  };
+
+  // Gérer les changements dans les filtres
+  const handleFilterChange = (name: string, value: string) => {
+    setFilterValues(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
   const handleOpenDialog = (site?: Site) => {
     if (site) {
@@ -82,25 +215,28 @@ const SitesPage = () => {
         id: site.id,
         name: site.name,
         region: site.region,
-        zone: site.zone || '',
         longitude: site.longitude,
         latitude: site.latitude,
         status: site.status as SiteStatus,
         oldBase: site.oldBase,
-        newBase: site.newBase
+        newBase: site.newBase,
+        type: site.type || SiteTypes.TOUR,
+        specifications: site.specifications || {}
       })
     } else {
       setCurrentSite(null)
       setFormData({
         id: '',
         name: '',
-        region: '',
-        zone: '',
+        region: region.MARITIME,
         longitude: 0,
         latitude: 0,
-        status: SiteStatus.ACTIVE
+        status: SiteStatus.ACTIVE,
+        type: SiteTypes.TOUR,
+        specifications: {}
       })
     }
+
     setOpenDialog(true)
   }
 
@@ -108,85 +244,304 @@ const SitesPage = () => {
     setOpenDialog(false)
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }> | SelectChangeEvent<string>
+  ) => {
     const { name, value } = e.target
+    
+    // Convertir les valeurs de longitude et latitude en nombres pour le formulaire
+    if (name === 'longitude' || name === 'latitude') {
+      setFormData({
+        ...formData,
+        [name]: parseFloat(value as string) || 0
+      })
+    } else {
+      setFormData({
+        ...formData,
+        [name as string]: value
+      })
+    }
+  }
+
+  // Gestionnaire pour les changements dans les spécifications
+  const handleSpecificationChange = (name: string, value: any) => {
     setFormData({
       ...formData,
-      [name as string]: value
-    })
+      specifications: {
+        ...formData.specifications,
+        [name]: value
+      }
+    });
   }
 
   const handleSubmit = async () => {
     try {
+      // Valider les données du formulaire
+      if (!formData.id || !formData.name || !formData.region) {
+        setError('Veuillez remplir tous les champs obligatoires')
+        
+return
+      }
+
+      // Convertir les coordonnées GPS en nombres
+      const longitude = Number(formData.longitude)
+      const latitude = Number(formData.latitude)
+
+      if (isNaN(longitude) || isNaN(latitude)) {
+        setError('Les coordonnées doivent être des nombres valides')
+        
+return
+      }
+
+      const formDataToSubmit = {
+        id: formData.id,
+        name: formData.name,
+        region: formData.region,
+        longitude: parseFloat(longitude.toFixed(6)),
+        latitude: parseFloat(latitude.toFixed(6)),
+        status: formData.status,
+        oldBase: formData.oldBase,
+        newBase: formData.newBase,
+        type: formData.type,
+        specifications: formData.specifications
+      };
+      
+      // Déboguer les données avant soumission
+      console.log("Données du formulaire à soumettre:", JSON.stringify(formDataToSubmit));
+      
       if (currentSite) {
         // Mise à jour du site
         const updateData: UpdateSiteDto = {
-          name: formData.name,
-          region: formData.region,
-          zone: formData.zone,
-          longitude: formData.longitude,
-          latitude: formData.latitude,
-          status: formData.status,
-          oldBase: formData.oldBase,
-          newBase: formData.newBase
+          name: formDataToSubmit.name,
+          region: formDataToSubmit.region,
+          longitude: formDataToSubmit.longitude,
+          latitude: formDataToSubmit.latitude,
+          status: formDataToSubmit.status,
+          oldBase: formDataToSubmit.oldBase,
+          newBase: formDataToSubmit.newBase,
+          type: formDataToSubmit.type,
+          specifications: formDataToSubmit.specifications
         }
+
         await sitesService.updateSite(currentSite.id, updateData)
       } else {
         // Création d'un nouveau site
-        await sitesService.createSite(formData)
+        await sitesService.createSite(formDataToSubmit)
       }
 
       handleCloseDialog()
       fetchSites() // Recharger la liste
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur lors de l\'enregistrement du site:', err)
-      setError('Erreur lors de l\'enregistrement du site')
+
+      // Afficher un message d'erreur plus précis si disponible
+      setError(err.message || 'Erreur lors de l\'enregistrement du site')
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce site?')) {
-      try {
-        await sitesService.deleteSite(id)
-        fetchSites() // Recharger la liste
-      } catch (err) {
-        console.error('Erreur lors de la suppression du site:', err)
-        setError('Erreur lors de la suppression du site')
-      }
+  const handleOpenDeleteDialog = (id: string) => {
+    setSiteToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setSiteToDelete(null);
+  };
+
+  const handleDelete = async () => {
+    if (!siteToDelete) return;
+
+    try {
+      setLoading(true);
+      await sitesService.deleteSite(siteToDelete);
+
+      // Actualiser la liste des sites après la suppression
+      await fetchSites();
+
+      // Fermer la boîte de dialogue
+      handleCloseDeleteDialog();
+    } catch (err: any) {
+      console.error('Erreur lors de la suppression du site:', err);
+
+      // Afficher un message d'erreur plus précis si disponible
+      setError(err.message || 'Erreur lors de la suppression du site');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
+
+  const handleRestore = async (id: string) => {
+    try {
+      setLoading(true);
+
+      // Restaurer le site en changeant son statut à ACTIVE
+      await sitesService.updateSite(id, { status: SiteStatus.ACTIVE });
+
+      // Actualiser la liste des sites
+      await fetchSites();
+    } catch (err: any) {
+      console.error('Erreur lors de la restauration du site:', err);
+
+      // Afficher un message d'erreur plus précis si disponible
+      setError(err.message || 'Erreur lors de la restauration du site');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case SiteStatus.ACTIVE:
-        return 'success'
+        return 'success';
       case SiteStatus.MAINTENANCE:
-        return 'warning'
+        return 'warning';
       case SiteStatus.INACTIVE:
-        return 'error'
+        return 'error';
       case SiteStatus.UNDER_CONSTRUCTION:
-        return 'info'
+        return 'info';
+      case SiteStatus.DELETED:
+        return 'default';
       default:
-        return 'default'
+        return 'default';
     }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case SiteStatus.ACTIVE:
+        return 'Actif';
+      case SiteStatus.MAINTENANCE:
+        return 'Maintenance';
+      case SiteStatus.INACTIVE:
+        return 'Inactif';
+      case SiteStatus.UNDER_CONSTRUCTION:
+        return 'En construction';
+      case SiteStatus.DELETED:
+        return 'Supprimé';
+      default:
+        return status;
+    }
+  };
+
+  // Pagination des sites
+  const startIndex = (page - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const displayedSites = filteredSites.slice(startIndex, endIndex);
+
+  // Fonction pour naviguer vers les détails d'un site
+  const navigateToSiteDetails = (siteId: string) => {
+    router.push(`/${lang}/sites/${siteId}`)
   }
 
-  if (loading) {
+  if (loading && sites.length === 0) {
     return <Typography>Chargement des sites...</Typography>
-  }
-
-  if (error) {
-    return <Typography color="error">{error}</Typography>
   }
 
   return (
     <Box sx={{ p: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4">Gestion des Sites</Typography>
-        <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
-          Ajouter un site
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="Afficher les sites supprimés"
+          />
+          <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
+            Ajouter un site
+          </Button>
+        </Box>
       </Box>
+
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+      )}
+
+      {/* Section de filtrage */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
+              <FilterListIcon sx={{ mr: 1 }} /> Filtres
+            </Typography>
+            <Button 
+              size="small" 
+              onClick={() => setFilterExpanded(!filterExpanded)}
+            >
+              {filterExpanded ? 'Réduire' : 'Développer'}
+            </Button>
+          </Box>
+
+          <Box sx={{ display: filterExpanded ? 'block' : 'none' }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Recherche"
+                  value={filterValues.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  placeholder="ID, nom, type..."
+                  InputProps={{
+                    startAdornment: <SearchIcon sx={{ color: 'action.active', mr: 1 }} />,
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Région</InputLabel>
+                  <Select
+                    value={filterValues.region}
+                    label="Région"
+                    onChange={(e) => handleFilterChange('region', e.target.value)}
+                  >
+                    <MenuItem value="">Toutes les régions</MenuItem>
+                    {Object.values(region).map((r) => (
+                      <MenuItem key={r} value={r}>{r}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Statut</InputLabel>
+                  <Select
+                    value={filterValues.status}
+                    label="Statut"
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                  >
+                    <MenuItem value="">Tous les statuts</MenuItem>
+                    {Object.values(SiteStatus).map((status) => (
+                      <MenuItem key={status} value={status}>{getStatusLabel(status)}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Type de site</InputLabel>
+                  <Select
+                    value={filterValues.type}
+                    label="Type de site"
+                    onChange={(e) => handleFilterChange('type', e.target.value)}
+                  >
+                    <MenuItem value="">Tous les types</MenuItem>
+                    {Object.values(SiteTypes).map((type) => (
+                      <MenuItem key={type} value={type}>{type}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent>
@@ -197,42 +552,95 @@ const SitesPage = () => {
                   <TableCell>ID</TableCell>
                   <TableCell>Nom</TableCell>
                   <TableCell>Région</TableCell>
-                  <TableCell>Zone</TableCell>
+                  <TableCell>Type</TableCell>
                   <TableCell>Coordonnées</TableCell>
                   <TableCell>Statut</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {sites.map((site) => (
-                  <TableRow key={site.id}>
-                    <TableCell>{site.id}</TableCell>
-                    <TableCell>{site.name}</TableCell>
-                    <TableCell>{site.region}</TableCell>
-                    <TableCell>{site.zone || '-'}</TableCell>
-                    <TableCell>
-                      {site.latitude}, {site.longitude}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={site.status}
-                        color={getStatusColor(site.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button size="small" onClick={() => handleOpenDialog(site)}>
-                        Modifier
-                      </Button>
-                      <Button size="small" color="error" onClick={() => handleDelete(site.id)}>
-                        Supprimer
-                      </Button>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      Chargement...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : displayedSites.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      Aucun site trouvé
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  displayedSites.map((site) => (
+                    <TableRow key={site.id}>
+                      <TableCell>{site.id}</TableCell>
+                      <TableCell>{site.name}</TableCell>
+                      <TableCell>{site.region}</TableCell>
+                      <TableCell>{site.type || '-'}</TableCell>
+                      <TableCell>
+                        {site.latitude}, {site.longitude}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={getStatusLabel(site.status)}
+                          color={getStatusColor(site.status) as any}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          size="small" 
+                          onClick={() => handleOpenDialog(site)}
+                          disabled={site.status === SiteStatus.DELETED}
+                        >
+                          Modifier
+                        </Button>
+                        {site.status !== SiteStatus.DELETED ? (
+                          <Button 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleOpenDeleteDialog(site.id)}
+                          >
+                            Supprimer
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="small" 
+                            color="success" 
+                            onClick={() => handleRestore(site.id)}
+                          >
+                            Restaurer
+                          </Button>
+                        )}
+                        <Button 
+                          size="small" 
+                          color="primary" 
+                          onClick={() => navigateToSiteDetails(site.id)}
+                        >
+                          Détails
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
+
+          {/* Pagination */}
+          {filteredSites.length > 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Pagination
+                count={Math.ceil(filteredSites.length / ITEMS_PER_PAGE)}
+                page={page}
+                onChange={handlePageChange}
+                color="primary"
+                showFirstButton
+                showLastButton
+              />
+            </Box>
+          )}
         </CardContent>
       </Card>
 
@@ -262,23 +670,19 @@ const SitesPage = () => {
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                name="region"
-                label="Région"
-                fullWidth
-                value={formData.region}
-                onChange={handleInputChange}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                name="zone"
-                label="Zone"
-                fullWidth
-                value={formData.zone}
-                onChange={handleInputChange}
-              />
+              <FormControl fullWidth required>
+                <InputLabel>Région</InputLabel>
+                <Select
+                  name="region"
+                  value={formData.region}
+                  label="Région"
+                  onChange={handleInputChange}
+                >
+                  {Object.entries(region).map(([key, value]) => (
+                    <MenuItem key={key} value={value}>{value}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
@@ -289,6 +693,7 @@ const SitesPage = () => {
                 value={formData.latitude}
                 onChange={handleInputChange}
                 required
+                inputProps={{ step: 'any' }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -300,6 +705,7 @@ const SitesPage = () => {
                 value={formData.longitude}
                 onChange={handleInputChange}
                 required
+                inputProps={{ step: 'any' }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -315,6 +721,9 @@ const SitesPage = () => {
                   <MenuItem value={SiteStatus.MAINTENANCE}>Maintenance</MenuItem>
                   <MenuItem value={SiteStatus.INACTIVE}>Inactif</MenuItem>
                   <MenuItem value={SiteStatus.UNDER_CONSTRUCTION}>En construction</MenuItem>
+                  {currentSite && currentSite.status === SiteStatus.DELETED && (
+                    <MenuItem value={SiteStatus.DELETED}>Supprimé</MenuItem>
+                  )}
                 </Select>
               </FormControl>
             </Grid>
@@ -336,12 +745,78 @@ const SitesPage = () => {
                 onChange={handleInputChange}
               />
             </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Type de site</InputLabel>
+                <Select
+                  name="type"
+                  value={formData.type || SiteTypes.TOUR}
+                  label="Type de site"
+                  onChange={handleInputChange}
+                >
+                  {Object.values(SiteTypes).map((type) => (
+                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            {currentSpecification && currentSpecification.columns && currentSpecification.columns.length > 0 && (
+              <Grid item xs={12}>
+                <Accordion defaultExpanded>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="subtitle1">
+                      Spécifications spécifiques au type {formData.type}
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Grid container spacing={2}>
+                      {currentSpecification.columns.map((column: any, index: number) => (
+                        <Grid item xs={12} md={6} key={index}>
+                          <TextField
+                            fullWidth
+                            label={column.name}
+                            type={column.type === 'int' || column.type === 'float' || column.type === 'decimal' ? 'number' : column.type === 'boolean' ? 'checkbox' : 'text'}
+                            value={formData.specifications?.[column.name] || ''}
+                            onChange={(e) => handleSpecificationChange(column.name, e.target.value)}
+                            required={!column.nullable}
+                            placeholder={column.defaultValue || ''}
+                            helperText={`Type: ${column.type}${column.length ? ` (max: ${column.length})` : ''}`}
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Annuler</Button>
           <Button onClick={handleSubmit} variant="contained" color="primary">
             {currentSite ? 'Mettre à jour' : 'Ajouter'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          Confirmer la suppression
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            Êtes-vous sûr de vouloir supprimer ce site? Cette action est irréversible.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog}>Annuler</Button>
+          <Button onClick={handleDelete} color="error" autoFocus>
+            Supprimer
           </Button>
         </DialogActions>
       </Dialog>

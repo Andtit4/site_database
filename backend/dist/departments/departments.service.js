@@ -21,6 +21,7 @@ const department_entity_1 = require("../entities/department.entity");
 const equipment_entity_1 = require("../entities/equipment.entity");
 const email_service_1 = require("../services/email.service");
 const users_service_1 = require("../users/users.service");
+const team_entity_1 = require("../teams/entities/team.entity");
 let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
     constructor(departmentsRepository, usersService, emailService) {
         this.departmentsRepository = departmentsRepository;
@@ -140,9 +141,9 @@ let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
         try {
             const departmentQuery = this.departmentsRepository.createQueryBuilder('department')
                 .where('department.id = :id', { id })
-                .andWhere('department.isDeleted = :isDeleted', { isDeleted: false })
-                .leftJoinAndSelect('department.equipment', 'equipment', 'equipment.isDeleted = :equipDeleted', { equipDeleted: false })
-                .leftJoinAndSelect('department.teams', 'teams', 'teams.isDeleted = :teamsDeleted', { teamsDeleted: false });
+                .andWhere('department.isDeleted = :isDeleted', { isDeleted: false });
+            departmentQuery.leftJoinAndSelect('department.equipment', 'equipment', 'equipment.isDeleted = :equipDeleted', { equipDeleted: false });
+            departmentQuery.leftJoinAndSelect('department.teams', 'teams', 'teams.departmentId = :deptId AND teams.isDeleted = :teamsDeleted', { deptId: id, teamsDeleted: false });
             const department = await departmentQuery.getOne();
             if (!department) {
                 throw new common_1.NotFoundException(`Département avec ID "${id}" non trouvé`);
@@ -165,26 +166,31 @@ let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
             const department = await this.findOne(id);
             if (updateDepartmentDto.name && updateDepartmentDto.name !== department.name) {
                 const existingDepartment = await this.departmentsRepository.findOne({
-                    where: { name: updateDepartmentDto.name },
+                    where: { name: updateDepartmentDto.name, isDeleted: false },
                 });
-                if (existingDepartment) {
+                if (existingDepartment && existingDepartment.id !== id) {
                     throw new common_1.ConflictException(`Un département avec le nom '${updateDepartmentDto.name}' existe déjà`);
                 }
             }
             if (updateDepartmentDto.managedEquipmentTypes && Array.isArray(updateDepartmentDto.managedEquipmentTypes)) {
                 updateDepartmentDto.managedEquipmentTypes = updateDepartmentDto.managedEquipmentTypes.join(',');
             }
-            const teamsBefore = department.teams;
-            Object.assign(department, updateDepartmentDto);
-            department.teams = teamsBefore;
+            const teamsBefore = department.teams ? [...department.teams] : [];
+            const updateData = { ...updateDepartmentDto };
+            delete updateData['teams'];
+            Object.assign(department, updateData);
             this.logger.log(`Mise à jour du département: ${department.name}`);
-            const savedDepartment = await this.departmentsRepository.save(department);
+            const savedDepartment = await this.departmentsRepository.save({
+                ...department,
+                teams: undefined
+            });
             if (savedDepartment.managedEquipmentTypes && typeof savedDepartment.managedEquipmentTypes === 'string') {
                 savedDepartment.managedEquipmentTypes = savedDepartment.managedEquipmentTypes
                     .split(',')
                     .filter(type => type)
                     .map(type => type);
             }
+            savedDepartment.teams = teamsBefore;
             return savedDepartment;
         }
         catch (error) {
@@ -197,6 +203,18 @@ let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
             const department = await this.findOne(id);
             if (!department) {
                 throw new common_1.NotFoundException(`Département avec ID "${id}" non trouvé`);
+            }
+            if (department.teams && department.teams.length > 0) {
+                this.logger.log(`Marquage de ${department.teams.length} équipes comme supprimées`);
+                const teamRepository = this.departmentsRepository.manager.getRepository(team_entity_1.Team);
+                for (const team of department.teams) {
+                    try {
+                        await teamRepository.update({ id: team.id }, { isDeleted: true });
+                    }
+                    catch (err) {
+                        this.logger.error(`Erreur lors du marquage de l'équipe ${team.id} comme supprimée: ${err.message}`);
+                    }
+                }
             }
             await this.usersService.deleteDepartmentUsers(id);
             department.isDeleted = true;

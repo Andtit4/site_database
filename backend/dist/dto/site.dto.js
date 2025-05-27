@@ -102,6 +102,26 @@ __decorate([
 ], CreateSiteDto.prototype, "newBase", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
+        description: 'Type de site (pour les spécifications dynamiques)',
+        enum: site_entity_1.SiteType,
+        example: site_entity_1.SiteType.TOUR
+    }),
+    (0, class_validator_1.IsEnum)(site_entity_1.SiteType),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateSiteDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Spécifications dynamiques du site selon son type',
+        type: 'object',
+        example: { hauteur: 50, nbAntennes: 3 }
+    }),
+    (0, class_validator_1.IsObject)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateSiteDto.prototype, "specifications", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
         description: 'Équipements à ajouter au site lors de la création',
         type: [equipment_dto_1.CreateEquipmentDto]
     }),
@@ -117,7 +137,7 @@ exports.UpdateSiteDto = UpdateSiteDto;
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Nom du site',
-        example: 'Site de Douala (modifié)'
+        example: 'Site de Douala'
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
@@ -132,6 +152,15 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateSiteDto.prototype, "region", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Zone géographique du site',
+        example: 'Zone Nord'
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateSiteDto.prototype, "zone", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Longitude (coordonnées GPS)',
@@ -156,7 +185,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Statut du site',
         enum: site_entity_1.SiteStatus,
-        example: site_entity_1.SiteStatus.MAINTENANCE
+        example: site_entity_1.SiteStatus.ACTIVE
     }),
     (0, class_validator_1.IsEnum)(site_entity_1.SiteStatus),
     (0, class_validator_1.IsOptional)(),
@@ -180,6 +209,26 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateSiteDto.prototype, "newBase", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Type de site (pour les spécifications dynamiques)',
+        enum: site_entity_1.SiteType,
+        example: site_entity_1.SiteType.TOUR
+    }),
+    (0, class_validator_1.IsEnum)(site_entity_1.SiteType),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateSiteDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Spécifications dynamiques du site selon son type',
+        type: 'object',
+        example: { hauteur: 50, nbAntennes: 3 }
+    }),
+    (0, class_validator_1.IsObject)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], UpdateSiteDto.prototype, "specifications", void 0);
 class SiteFilterDto {
 }
 exports.SiteFilterDto = SiteFilterDto;
@@ -212,4 +261,13 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Array)
 ], SiteFilterDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Inclure les sites marqués comme supprimés',
+        default: false,
+        example: false
+    }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], SiteFilterDto.prototype, "includeDeleted", void 0);
 //# sourceMappingURL=site.dto.js.map

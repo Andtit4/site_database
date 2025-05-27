@@ -16,7 +16,7 @@ export class SitesService {
   ) {}
 
   async findAll(filterDto: SiteFilterDto = {}): Promise<Site[]> {
-    const { search, region, status } = filterDto;
+    const { search, region, status, includeDeleted } = filterDto;
     const query = this.sitesRepository.createQueryBuilder('site')
       .leftJoinAndSelect('site.equipment', 'equipment');
 
@@ -33,6 +33,10 @@ export class SitesService {
 
     if (status && status.length > 0) {
       query.andWhere('site.status IN (:...status)', { status });
+    } else if (!includeDeleted) {
+      // Si aucun statut n'est spécifié et qu'on ne demande pas explicitement les éléments supprimés,
+      // exclure les sites avec le statut DELETED
+      query.andWhere('site.status != :deletedStatus', { deletedStatus: SiteStatus.DELETED });
     }
 
     return query.getMany();
@@ -77,11 +81,12 @@ export class SitesService {
   }
 
   async remove(id: string): Promise<void> {
-    const result = await this.sitesRepository.delete(id);
+    // Vérifier que le site existe
+    const site = await this.findOne(id);
     
-    if (result.affected === 0) {
-      throw new NotFoundException(`Site avec ID ${id} non trouve`);
-    }
+    // Mettre à jour le statut au lieu de supprimer
+    site.status = SiteStatus.DELETED;
+    await this.sitesRepository.save(site);
   }
 
   // Methode utilitaire pour obtenir des statistiques des sites
@@ -160,5 +165,27 @@ export class SitesService {
     }
 
     return site.teams;
+  }
+
+  async getSiteSpecifications(id: string): Promise<Record<string, any>> {
+    const site = await this.findOne(id);
+    
+    if (!site.specifications) {
+      return {};
+    }
+    
+    return site.specifications;
+  }
+
+  async updateSiteSpecifications(id: string, specifications: Record<string, any>): Promise<Site> {
+    const site = await this.findOne(id);
+    
+    // Mettre à jour les spécifications
+    site.specifications = specifications;
+    
+    // Sauvegarder les modifications
+    await this.sitesRepository.save(site);
+    
+    return site;
   }
 } 

@@ -6,6 +6,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBea
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { DepartmentAdminGuard } from '../auth/guards/department-admin.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('sites')
 @Controller('sites')
@@ -147,5 +148,26 @@ export class SitesController {
   @UseGuards(DepartmentAdminGuard)
   async getSiteTeams(@Param('id') id: string) {
     return this.sitesService.getSiteTeams(id);
+  }
+
+  @Get(':id/specifications')
+  @Roles('admin', 'user')
+  @ApiOperation({ summary: 'Récupérer les spécifications d\'un site' })
+  @ApiResponse({ status: 200, description: 'Spécifications du site récupérées avec succès' })
+  @ApiResponse({ status: 404, description: 'Site non trouvé' })
+  async getSiteSpecifications(@Param('id') id: string) {
+    return this.sitesService.getSiteSpecifications(id);
+  }
+
+  @Patch(':id/specifications')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Mettre à jour les spécifications d\'un site' })
+  @ApiResponse({ status: 200, description: 'Spécifications mises à jour' })
+  @ApiResponse({ status: 404, description: 'Site non trouvé' })
+  async updateSiteSpecifications(
+    @Param('id') id: string,
+    @Body() specifications: Record<string, any>
+  ) {
+    return this.sitesService.updateSiteSpecifications(id, specifications);
   }
 } 

@@ -1,6 +1,6 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsNumber, ValidateNested, IsArray, IsLatitude, IsLongitude } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsNumber, ValidateNested, IsArray, IsLatitude, IsLongitude, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SiteStatus } from '../entities/site.entity';
+import { SiteStatus, SiteType } from '../entities/site.entity';
 import { CreateEquipmentDto } from './equipment.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -77,6 +77,24 @@ export class CreateSiteDto {
   newBase?: string;
 
   @ApiPropertyOptional({
+    description: 'Type de site (pour les spécifications dynamiques)',
+    enum: SiteType,
+    example: SiteType.TOUR
+  })
+  @IsEnum(SiteType)
+  @IsOptional()
+  type?: string;
+
+  @ApiPropertyOptional({
+    description: 'Spécifications dynamiques du site selon son type',
+    type: 'object',
+    example: { hauteur: 50, nbAntennes: 3 }
+  })
+  @IsObject()
+  @IsOptional()
+  specifications?: Record<string, any>;
+
+  @ApiPropertyOptional({
     description: 'Équipements à ajouter au site lors de la création',
     type: [CreateEquipmentDto]
   })
@@ -90,7 +108,7 @@ export class CreateSiteDto {
 export class UpdateSiteDto {
   @ApiPropertyOptional({
     description: 'Nom du site',
-    example: 'Site de Douala (modifié)'
+    example: 'Site de Douala'
   })
   @IsString()
   @IsOptional()
@@ -103,6 +121,14 @@ export class UpdateSiteDto {
   @IsString()
   @IsOptional()
   region?: string;
+
+  @ApiPropertyOptional({
+    description: 'Zone géographique du site',
+    example: 'Zone Nord'
+  })
+  @IsString()
+  @IsOptional()
+  zone?: string;
 
   @ApiPropertyOptional({
     description: 'Longitude (coordonnées GPS)',
@@ -125,7 +151,7 @@ export class UpdateSiteDto {
   @ApiPropertyOptional({
     description: 'Statut du site',
     enum: SiteStatus,
-    example: SiteStatus.MAINTENANCE
+    example: SiteStatus.ACTIVE
   })
   @IsEnum(SiteStatus)
   @IsOptional()
@@ -146,6 +172,24 @@ export class UpdateSiteDto {
   @IsString()
   @IsOptional()
   newBase?: string;
+
+  @ApiPropertyOptional({
+    description: 'Type de site (pour les spécifications dynamiques)',
+    enum: SiteType,
+    example: SiteType.TOUR
+  })
+  @IsEnum(SiteType)
+  @IsOptional()
+  type?: string;
+
+  @ApiPropertyOptional({
+    description: 'Spécifications dynamiques du site selon son type',
+    type: 'object',
+    example: { hauteur: 50, nbAntennes: 3 }
+  })
+  @IsObject()
+  @IsOptional()
+  specifications?: Record<string, any>;
 }
 
 export class SiteFilterDto {
@@ -174,4 +218,12 @@ export class SiteFilterDto {
   @IsEnum(SiteStatus, { each: true })
   @IsOptional()
   status?: SiteStatus[];
+  
+  @ApiPropertyOptional({
+    description: 'Inclure les sites marqués comme supprimés',
+    default: false,
+    example: false
+  })
+  @IsOptional()
+  includeDeleted?: boolean;
 } 

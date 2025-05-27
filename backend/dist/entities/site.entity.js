@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Site = exports.SiteStatus = void 0;
+exports.Site = exports.SiteType = exports.SiteStatus = void 0;
 const typeorm_1 = require("typeorm");
 const equipment_entity_1 = require("./equipment.entity");
 const team_entity_1 = require("../teams/entities/team.entity");
@@ -19,7 +19,18 @@ var SiteStatus;
     SiteStatus["MAINTENANCE"] = "MAINTENANCE";
     SiteStatus["INACTIVE"] = "INACTIVE";
     SiteStatus["UNDER_CONSTRUCTION"] = "UNDER_CONSTRUCTION";
+    SiteStatus["DELETED"] = "DELETED";
 })(SiteStatus || (exports.SiteStatus = SiteStatus = {}));
+var SiteType;
+(function (SiteType) {
+    SiteType["TOUR"] = "TOUR";
+    SiteType["SHELTER"] = "SHELTER";
+    SiteType["PYLONE"] = "PYLONE";
+    SiteType["BATIMENT"] = "BATIMENT";
+    SiteType["TOIT"] = "TOIT";
+    SiteType["TERRAIN"] = "TERRAIN";
+    SiteType["AUTRE"] = "AUTRE";
+})(SiteType || (exports.SiteType = SiteType = {}));
 let Site = class Site {
 };
 exports.Site = Site;
@@ -63,6 +74,18 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], Site.prototype, "newBase", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'varchar',
+        length: 50,
+        nullable: true
+    }),
+    __metadata("design:type", String)
+], Site.prototype, "type", void 0);
+__decorate([
+    (0, typeorm_1.Column)('json', { nullable: true }),
+    __metadata("design:type", Object)
+], Site.prototype, "specifications", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => equipment_entity_1.Equipment, equipment => equipment.site),
     __metadata("design:type", Array)

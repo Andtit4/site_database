@@ -1,17 +1,19 @@
 import api from './api';
 import authService from './authService';
-import sitesService from './sitesService';
+import sitesServiceImport from './sitesService';
 import equipmentService from './equipmentService';
 import departmentsService from './departmentsService';
 import teamsService from './teamsService';
 import specificationsService from './specificationsService';
+import siteSpecificationsService from './siteSpecificationsService';
 
 export {
   api,
   authService,
-  sitesService,
+  sitesServiceImport as sitesService,
   equipmentService,
   departmentsService,
   teamsService,
-  specificationsService
+  specificationsService,
+  siteSpecificationsService
 }; 

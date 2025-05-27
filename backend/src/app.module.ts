@@ -11,6 +11,8 @@ import { SpecificationsModule } from './specifications/specifications.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { typeOrmConfig } from './config/typeorm.config';
+import { SiteSpecificationsModule } from './site-specifications/site-specifications.module';
+import { TableManagerModule } from './table-manager/table-manager.module';
 
 @Module({
   imports: [
@@ -20,7 +22,7 @@ import { typeOrmConfig } from './config/typeorm.config';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: typeOrmConfig,
+      useFactory: (configService: ConfigService) => typeOrmConfig(configService)
     }),
     SitesModule,
     EquipmentModule,
@@ -29,6 +31,8 @@ import { typeOrmConfig } from './config/typeorm.config';
     SpecificationsModule,
     AuthModule,
     UsersModule,
+    SiteSpecificationsModule,
+    TableManagerModule
   ],
   controllers: [AppController],
   providers: [AppService],

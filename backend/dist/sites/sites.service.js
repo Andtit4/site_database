@@ -24,7 +24,7 @@ let SitesService = class SitesService {
         this.teamsRepository = teamsRepository;
     }
     async findAll(filterDto = {}) {
-        const { search, region, status } = filterDto;
+        const { search, region, status, includeDeleted } = filterDto;
         const query = this.sitesRepository.createQueryBuilder('site')
             .leftJoinAndSelect('site.equipment', 'equipment');
         if (search) {
@@ -35,6 +35,9 @@ let SitesService = class SitesService {
         }
         if (status && status.length > 0) {
             query.andWhere('site.status IN (:...status)', { status });
+        }
+        else if (!includeDeleted) {
+            query.andWhere('site.status != :deletedStatus', { deletedStatus: site_entity_1.SiteStatus.DELETED });
         }
         return query.getMany();
     }
@@ -61,10 +64,9 @@ let SitesService = class SitesService {
         return this.sitesRepository.save(site);
     }
     async remove(id) {
-        const result = await this.sitesRepository.delete(id);
-        if (result.affected === 0) {
-            throw new common_1.NotFoundException(`Site avec ID ${id} non trouve`);
-        }
+        const site = await this.findOne(id);
+        site.status = site_entity_1.SiteStatus.DELETED;
+        await this.sitesRepository.save(site);
     }
     async getStatistics() {
         const totalSites = await this.sitesRepository.count();
@@ -124,6 +126,19 @@ let SitesService = class SitesService {
             throw new common_1.NotFoundException(`Site avec ID ${siteId} non trouve`);
         }
         return site.teams;
+    }
+    async getSiteSpecifications(id) {
+        const site = await this.findOne(id);
+        if (!site.specifications) {
+            return {};
+        }
+        return site.specifications;
+    }
+    async updateSiteSpecifications(id, specifications) {
+        const site = await this.findOne(id);
+        site.specifications = specifications;
+        await this.sitesRepository.save(site);
+        return site;
     }
 };
 exports.SitesService = SitesService;

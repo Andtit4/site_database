@@ -6,15 +6,16 @@ export enum SiteStatus {
   MAINTENANCE = 'MAINTENANCE',
   INACTIVE = 'INACTIVE',
   UNDER_CONSTRUCTION = 'UNDER_CONSTRUCTION',
+  DELETED = 'DELETED',
 }
 
 export enum region {
   MARITIME = 'MARITIME',
   CENTRALE = 'CENTRALE',
   LOME = 'LOME',
-  KARA  = 'KARA ',
+  KARA = 'KARA',
   DAPAONG = 'DAPAONG',
-  SAVANE  = 'SAVANE',
+  SAVANE = 'SAVANE',
   PLATEAUX = 'PLATEAUX',
 }
 
@@ -28,6 +29,8 @@ export interface Site {
   status: string;
   oldBase?: string;
   newBase?: string;
+  type?: string; // Type de site pour les spécifications dynamiques
+  specifications?: Record<string, any>; // Spécifications dynamiques
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,12 +39,13 @@ export interface CreateSiteDto {
   id: string;
   name: string;
   region: string;
-  zone?: string;
   longitude: number;
   latitude: number;
   status?: string;
   oldBase?: string;
   newBase?: string;
+  type?: string; // Type de site pour les spécifications dynamiques
+  specifications?: Record<string, any>; // Spécifications dynamiques
 }
 
 export interface UpdateSiteDto {
@@ -53,107 +57,166 @@ export interface UpdateSiteDto {
   status?: string;
   oldBase?: string;
   newBase?: string;
+  type?: string; // Type de site pour les spécifications dynamiques
+  specifications?: Record<string, any>; // Spécifications dynamiques
 }
 
-
-
-// Vérifie si on doit utiliser les données mockées (en mode développement)
-const useMockData = false;
+class ApiError extends Error {
+  status: number;
+  
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
 
 const sitesService = {
-  getAllSites: async (): Promise<Site[]> => {
-    const response = await api.get('/sites');
-
-
-return response.data;
+  getAllSites: async (showDeleted: boolean = false): Promise<Site[]> => {
+    try {
+      const params = showDeleted ? { includeDeleted: true } : {};
+      const response = await api.get('/sites', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Erreur lors de la récupération des sites:', error);
+      throw new ApiError(
+        'Impossible de récupérer la liste des sites. Veuillez réessayer plus tard.',
+        error.response?.status || 500
+      );
+    }
   },
 
   getSiteById: async (id: string): Promise<Site> => {
-
-
-    const response = await api.get(`/sites/${id}`);
-
-
-return response.data;
+    try {
+      const response = await api.get(`/sites/${id}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
+      }
+      console.error(`Erreur lors de la récupération du site ${id}:`, error);
+      throw new ApiError(
+        `Impossible de récupérer les informations du site ${id}.`,
+        error.response?.status || 500
+      );
+    }
   },
 
   createSite: async (site: CreateSiteDto): Promise<Site> => {
-    console.log(site);
-    const response = await api.post('/sites', site);
-
-
-return response.data;
+    try {
+      const response = await api.post('/sites', site);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 409) {
+        throw new ApiError(`Un site avec l'ID ${site.id} existe déjà.`, 409);
+      }
+      console.error('Erreur lors de la création du site:', error);
+      throw new ApiError(
+        'Impossible de créer le site. Veuillez vérifier les informations saisies.',
+        error.response?.status || 500
+      );
+    }
   },
 
   updateSite: async (id: string, site: UpdateSiteDto): Promise<Site> => {
-    if (useMockData) {
-      const index = mockSites.findIndex(s => s.id === id);
-
-      if (index === -1) {
-        throw new Error('Site non trouvé');
+    try {
+      // Ne pas vérifier d'abord si le site existe, car cela entraîne une double requête
+      // Effectuer directement la mise à jour avec PATCH (mise à jour partielle)
+      const response = await api.patch(`/sites/${id}`, site);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
       }
-
-      const updatedSite = {
-        ...mockSites[index],
-        ...site,
-        updatedAt: new Date()
-      };
-
-      mockSites[index] = updatedSite;
-
-return Promise.resolve(updatedSite);
+      console.error(`Erreur lors de la mise à jour du site ${id}:`, error);
+      throw new ApiError(
+        `Impossible de mettre à jour le site ${id}.`,
+        error.response?.status || 500
+      );
     }
-
-    const response = await api.put(`/sites/${id}`, site);
-
-
-return response.data;
   },
 
   deleteSite: async (id: string): Promise<void> => {
-    if (useMockData) {
-      const index = mockSites.findIndex(s => s.id === id);
-
-      if (index !== -1) {
-        mockSites.splice(index, 1);
+    try {
+      // Ne pas vérifier d'abord si le site existe, car cela entraîne une double requête
+      // Effectuer directement la suppression
+      await api.delete(`/sites/${id}`);
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
       }
-
-
-return Promise.resolve();
+      console.error(`Erreur lors de la suppression du site ${id}:`, error);
+      throw new ApiError(
+        `Impossible de supprimer le site ${id}.`,
+        error.response?.status || 500
+      );
     }
-
-    await api.delete(`/sites/${id}`);
   },
 
   getSiteEquipment: async (id: string): Promise<any[]> => {
-    if (useMockData) {
-      // Simuler quelques équipements pour le site
-      return Promise.resolve([
-        { id: `eq-${id}-1`, name: 'Antenne 5G', status: 'ACTIVE' },
-        { id: `eq-${id}-2`, name: 'Émetteur radio', status: 'ACTIVE' },
-        { id: `eq-${id}-3`, name: 'Boîtier alimentation', status: 'MAINTENANCE' }
-      ]);
+    try {
+      const response = await api.get(`/sites/${id}/equipment`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
+      }
+      console.error(`Erreur lors de la récupération des équipements du site ${id}:`, error);
+      throw new ApiError(
+        `Impossible de récupérer les équipements du site ${id}.`,
+        error.response?.status || 500
+      );
     }
-
-    const response = await api.get(`/sites/${id}/equipment`);
-
-
-return response.data;
   },
 
   getSiteTeams: async (id: string): Promise<any[]> => {
-    if (useMockData) {
-      // Simuler quelques équipes pour le site
-      return Promise.resolve([
-        { id: `team-${id}-1`, name: 'Équipe maintenance Paris' },
-        { id: `team-${id}-2`, name: 'Équipe technique réseau' }
-      ]);
+    try {
+      const response = await api.get(`/sites/${id}/teams`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
+      }
+      console.error(`Erreur lors de la récupération des équipes du site ${id}:`, error);
+      throw new ApiError(
+        `Impossible de récupérer les équipes du site ${id}.`,
+        error.response?.status || 500
+      );
     }
+  },
 
-    const response = await api.get(`/sites/${id}/teams`);
+  // Méthode pour obtenir les spécifications d'un site
+  getSiteSpecifications: async (id: string): Promise<Record<string, any>> => {
+    try {
+      const response = await api.get(`/sites/${id}/specifications`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
+      }
+      console.error(`Erreur lors de la récupération des spécifications du site ${id}:`, error);
+      throw new ApiError(
+        `Impossible de récupérer les spécifications du site ${id}.`,
+        error.response?.status || 500
+      );
+    }
+  },
 
-
-return response.data;
+  // Méthode pour mettre à jour les spécifications d'un site
+  updateSiteSpecifications: async (id: string, specifications: Record<string, any>): Promise<Record<string, any>> => {
+    try {
+      const response = await api.patch(`/sites/${id}/specifications`, specifications);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
+      }
+      console.error(`Erreur lors de la mise à jour des spécifications du site ${id}:`, error);
+      throw new ApiError(
+        `Impossible de mettre à jour les spécifications du site ${id}.`,
+        error.response?.status || 500
+      );
+    }
   }
 };
 

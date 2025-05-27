@@ -21,6 +21,7 @@ const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const admin_guard_1 = require("../auth/guards/admin.guard");
 const department_admin_guard_1 = require("../auth/guards/department-admin.guard");
+const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 let SitesController = class SitesController {
     constructor(sitesService) {
         this.sitesService = sitesService;
@@ -51,6 +52,12 @@ let SitesController = class SitesController {
     }
     async getSiteTeams(id) {
         return this.sitesService.getSiteTeams(id);
+    }
+    async getSiteSpecifications(id) {
+        return this.sitesService.getSiteSpecifications(id);
+    }
+    async updateSiteSpecifications(id, specifications) {
+        return this.sitesService.updateSiteSpecifications(id, specifications);
     }
 };
 exports.SitesController = SitesController;
@@ -203,6 +210,29 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SitesController.prototype, "getSiteTeams", null);
+__decorate([
+    (0, common_1.Get)(':id/specifications'),
+    (0, roles_decorator_1.Roles)('admin', 'user'),
+    (0, swagger_1.ApiOperation)({ summary: 'Récupérer les spécifications d\'un site' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Spécifications du site récupérées avec succès' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Site non trouvé' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SitesController.prototype, "getSiteSpecifications", null);
+__decorate([
+    (0, common_1.Patch)(':id/specifications'),
+    (0, roles_decorator_1.Roles)('admin'),
+    (0, swagger_1.ApiOperation)({ summary: 'Mettre à jour les spécifications d\'un site' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Spécifications mises à jour' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Site non trouvé' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SitesController.prototype, "updateSiteSpecifications", null);
 exports.SitesController = SitesController = __decorate([
     (0, swagger_1.ApiTags)('sites'),
     (0, common_1.Controller)('sites'),

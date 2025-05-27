@@ -40,6 +40,9 @@ import { useSettings } from '@core/hooks/useSettings'
 // Util Imports
 import { getInitials } from '@/utils/getInitials'
 
+// Service Imports
+import notificationService from '@/services/notificationService'
+
 export type NotificationsType = {
   title: string
   subtitle: string
@@ -103,10 +106,10 @@ const getAvatar = (
   }
 }
 
-const NotificationDropdown = ({ notifications }: { notifications: NotificationsType[] }) => {
+const NotificationDropdown = ({ notifications: initialNotifications = [] }: { notifications?: NotificationsType[] }) => {
   // States
   const [open, setOpen] = useState(false)
-  const [notificationsState, setNotificationsState] = useState(notifications)
+  const [notificationsState, setNotificationsState] = useState<NotificationsType[]>(initialNotifications)
 
   // Vars
   const notificationCount = notificationsState.filter(notification => !notification.read).length
@@ -129,11 +132,47 @@ const NotificationDropdown = ({ notifications }: { notifications: NotificationsT
     setOpen(prevOpen => !prevOpen)
   }
 
+  // Charger les notifications depuis le service
+  useEffect(() => {
+    // Vérifier si nous sommes côté client
+    if (typeof window !== 'undefined') {
+      try {
+        // Charger les notifications initiales
+        setNotificationsState(notificationService.getNotifications())
+        
+        // S'abonner aux mises à jour
+        const handleNotificationsUpdate = (updatedNotifications: NotificationsType[]) => {
+          setNotificationsState(updatedNotifications)
+        }
+        
+        notificationService.addListener(handleNotificationsUpdate)
+        
+        // Se désabonner lors du démontage
+        return () => {
+          notificationService.removeListener(handleNotificationsUpdate)
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des notifications:', error)
+      }
+    }
+  }, [])
+
   // Read notification when notification is clicked
   const handleReadNotification = (event: MouseEvent<HTMLElement>, value: boolean, index: number) => {
     event.stopPropagation()
+    
+    // Trouver l'ID de la notification dans le localStorage
+    const storedNotifications = notificationService.getNotifications()
+    if (storedNotifications[index]) {
+      const storedNotification = storedNotifications[index] as any
+      if (storedNotification.id) {
+        notificationService.markAsRead(storedNotification.id)
+        return
+      }
+    }
+    
+    // Fallback au comportement précédent si l'ID n'est pas trouvé
     const newNotifications = [...notificationsState]
-
     newNotifications[index].read = value
     setNotificationsState(newNotifications)
   }
@@ -141,20 +180,26 @@ const NotificationDropdown = ({ notifications }: { notifications: NotificationsT
   // Remove notification when close icon is clicked
   const handleRemoveNotification = (event: MouseEvent<HTMLElement>, index: number) => {
     event.stopPropagation()
+    
+    // Trouver l'ID de la notification dans le localStorage
+    const storedNotifications = notificationService.getNotifications()
+    if (storedNotifications[index]) {
+      const storedNotification = storedNotifications[index] as any
+      if (storedNotification.id) {
+        notificationService.removeNotification(storedNotification.id)
+        return
+      }
+    }
+    
+    // Fallback au comportement précédent si l'ID n'est pas trouvé
     const newNotifications = [...notificationsState]
-
     newNotifications.splice(index, 1)
     setNotificationsState(newNotifications)
   }
 
   // Read or unread all notifications when read all icon is clicked
   const readAllNotifications = () => {
-    const newNotifications = [...notificationsState]
-
-    newNotifications.forEach(notification => {
-      notification.read = !readAll
-    })
-    setNotificationsState(newNotifications)
+    notificationService.markAllAsRead()
   }
 
   useEffect(() => {
@@ -298,8 +343,17 @@ const NotificationDropdown = ({ notifications }: { notifications: NotificationsT
                   </ScrollWrapper>
                   <Divider />
                   <div className='p-4'>
-                    <Button fullWidth variant='contained' size='small'>
-                      View All Notifications
+                    <Button 
+                      fullWidth 
+                      variant='contained' 
+                      size='small'
+                      onClick={() => {
+                        // Rediriger vers la page de toutes les notifications
+                        // ou implémenter une fonctionnalité supplémentaire
+                        handleClose()
+                      }}
+                    >
+                      Voir toutes les notifications
                     </Button>
                   </div>
                 </div>

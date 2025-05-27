@@ -24,44 +24,63 @@ import {
   Select,
   MenuItem,
   Grid,
-  Chip
+  Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Tabs,
+  Tab
 } from '@mui/material'
 import { 
   equipmentService, 
   sitesService,
-  departmentsService 
+  departmentsService,
+  specificationsService
 } from '@/services'
-import { Equipment, EquipmentStatus, EquipmentType, CreateEquipmentDto, UpdateEquipmentDto } from '@/services/equipmentService'
+import { 
+  Equipment, 
+  EquipmentStatus, 
+  CreateEquipmentDto, 
+  UpdateEquipmentDto,
+  EquipmentFilterDto
+} from '@/services/equipmentService'
+import { EquipmentTypes } from '@/services/specificationsService'
+import { Specification } from '@/services/specificationsService'
 
 const EquipmentPage = () => {
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [sites, setSites] = useState<any[]>([])
   const [departments, setDepartments] = useState<any[]>([])
+  const [specifications, setSpecifications] = useState<Specification[]>([])
+  const [currentSpecification, setCurrentSpecification] = useState<Specification | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [openDialog, setOpenDialog] = useState(false)
   const [currentEquipment, setCurrentEquipment] = useState<Equipment | null>(null)
+  const [filterValues, setFilterValues] = useState<EquipmentFilterDto>({})
   const [formData, setFormData] = useState<CreateEquipmentDto>({
-    name: '',
-    description: '',
+    id: crypto.randomUUID(),
+    type: EquipmentTypes.ANTENNE,
     model: '',
-    serialNumber: '',
-    manufacturer: '',
+    installDate: new Date().toISOString().split('T')[0],
     status: EquipmentStatus.ACTIVE,
-    siteId: ''
+    siteId: '',
+    specifications: {}
   })
 
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [equipmentData, sitesData, departmentsData] = await Promise.all([
-        equipmentService.getAllEquipment(),
+      const [equipmentData, sitesData, departmentsData, specificationsData] = await Promise.all([
+        equipmentService.getAllEquipment(filterValues),
         sitesService.getAllSites(),
-        departmentsService.getAllDepartments()
+        departmentsService.getAllDepartments(),
+        specificationsService.getAllSpecifications()
       ])
       setEquipment(equipmentData)
       setSites(sitesData)
       setDepartments(departmentsData)
+      setSpecifications(specificationsData)
     } catch (err) {
       console.error('Erreur lors de la récupération des données:', err)
       setError('Erreur lors du chargement des données')
@@ -84,39 +103,53 @@ const EquipmentPage = () => {
     return () => {
       window.removeEventListener('openAddEquipmentDialog', handleOpenAddDialog);
     };
-  }, [])
+  }, [filterValues])
+
+  // Trouver la spécification correspondant au type d'équipement sélectionné
+  useEffect(() => {
+    if (formData.type) {
+      const spec = specifications.find(s => s.equipmentType === formData.type);
+      setCurrentSpecification(spec || null);
+      
+      // Réinitialiser les spécifications lorsque le type change
+      if (formData.specifications && Object.keys(formData.specifications).length > 0) {
+        setFormData({
+          ...formData,
+          specifications: {}
+        });
+      }
+    }
+  }, [formData.type, specifications]);
 
   const handleOpenDialog = (equip?: Equipment) => {
     if (equip) {
       setCurrentEquipment(equip)
       setFormData({
-        name: equip.name,
-        description: equip.description || '',
+        id: equip.id,
+        type: equip.type,
         model: equip.model || '',
         serialNumber: equip.serialNumber || '',
         manufacturer: equip.manufacturer || '',
-        purchaseDate: equip.purchaseDate,
-        installDate: equip.installDate,
-        lastMaintenanceDate: equip.lastMaintenanceDate,
-        status: equip.status as EquipmentStatus,
-        location: equip.location || '',
-        purchasePrice: equip.purchasePrice,
-        warrantyExpiration: equip.warrantyExpiration,
-        ipAddress: equip.ipAddress || '',
-        macAddress: equip.macAddress || '',
+        installDate: equip.installDate ? new Date(equip.installDate).toISOString().split('T')[0] : '',
+        lastMaintenanceDate: equip.lastMaintenanceDate ? new Date(equip.lastMaintenanceDate).toISOString().split('T')[0] : '',
+        status: equip.status,
+        specifications: equip.specifications || {},
         siteId: equip.siteId,
-        departmentId: equip.departmentId
+        departmentId: equip.departmentId,
+        teamId: equip.teamId
       })
     } else {
       setCurrentEquipment(null)
+      // Initialiser avec le premier site disponible
+      const defaultSiteId = sites.length > 0 ? sites[0].id : '';
       setFormData({
-        name: '',
-        description: '',
+        id: crypto.randomUUID(),
+        type: EquipmentTypes.ANTENNE,
         model: '',
-        serialNumber: '',
-        manufacturer: '',
+        installDate: new Date().toISOString().split('T')[0],
         status: EquipmentStatus.ACTIVE,
-        siteId: sites.length > 0 ? sites[0].id : ''
+        siteId: defaultSiteId,
+        specifications: {}
       })
     }
     setOpenDialog(true)
@@ -134,11 +167,40 @@ const EquipmentPage = () => {
     })
   }
 
+  const handleSpecificationChange = (name: string, value: any) => {
+    setFormData({
+      ...formData,
+      specifications: {
+        ...formData.specifications,
+        [name]: value
+      }
+    });
+  }
+
+  const handleFilterChange = (name: string, value: any) => {
+    setFilterValues({
+      ...filterValues,
+      [name]: value
+    });
+  }
+
   const handleSubmit = async () => {
     try {
       if (currentEquipment) {
         // Mise à jour de l'équipement
-        const updateData: UpdateEquipmentDto = { ...formData }
+        const updateData: UpdateEquipmentDto = { 
+          type: formData.type,
+          model: formData.model,
+          serialNumber: formData.serialNumber,
+          manufacturer: formData.manufacturer,
+          installDate: formData.installDate,
+          lastMaintenanceDate: formData.lastMaintenanceDate,
+          status: formData.status,
+          specifications: formData.specifications,
+          siteId: formData.siteId,
+          departmentId: formData.departmentId,
+          teamId: formData.teamId
+        }
         await equipmentService.updateEquipment(currentEquipment.id, updateData)
       } else {
         // Création d'un nouvel équipement
@@ -199,54 +261,133 @@ const EquipmentPage = () => {
         </Button>
       </Box>
 
+      {/* Filtres */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>Filtres</Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <TextField
+                name="search"
+                label="Recherche"
+                fullWidth
+                value={filterValues.search || ''}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+                placeholder="Modèle, numéro de série..."
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Type d'équipement</InputLabel>
+                <Select
+                  name="type"
+                  multiple
+                  value={filterValues.type || []}
+                  label="Type d'équipement"
+                  onChange={(e) => handleFilterChange('type', e.target.value)}
+                >
+                  {Object.values(EquipmentTypes).map((type) => (
+                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Statut</InputLabel>
+                <Select
+                  name="status"
+                  multiple
+                  value={filterValues.status || []}
+                  label="Statut"
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                >
+                  {Object.values(EquipmentStatus).map((status) => (
+                    <MenuItem key={status} value={status}>{status}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Site</InputLabel>
+                <Select
+                  name="siteId"
+                  value={filterValues.siteId || ''}
+                  label="Site"
+                  onChange={(e) => handleFilterChange('siteId', e.target.value)}
+                >
+                  <MenuItem value="">Tous les sites</MenuItem>
+                  {sites.map(site => (
+                    <MenuItem key={site.id} value={site.id}>{site.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent>
           <TableContainer component={Paper}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Nom</TableCell>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Modèle</TableCell>
                   <TableCell>Site</TableCell>
                   <TableCell>Département</TableCell>
-                  <TableCell>Modèle</TableCell>
                   <TableCell>Statut</TableCell>
-                  <TableCell>Dernière maintenance</TableCell>
+                  <TableCell>Date d'installation</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {equipment.map((equip) => (
-                  <TableRow key={equip.id}>
-                    <TableCell>{equip.name}</TableCell>
-                    <TableCell>
-                      {sites.find(site => site.id === equip.siteId)?.name || '-'}
-                    </TableCell>
-                    <TableCell>
-                      {departments.find(dept => dept.id === equip.departmentId)?.name || '-'}
-                    </TableCell>
-                    <TableCell>{equip.model || '-'}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={equip.status} 
-                        color={getStatusColor(equip.status) as any} 
-                        size="small" 
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {equip.lastMaintenanceDate 
-                        ? new Date(equip.lastMaintenanceDate).toLocaleDateString() 
-                        : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Button size="small" onClick={() => handleOpenDialog(equip)}>
-                        Modifier
-                      </Button>
-                      <Button size="small" color="error" onClick={() => handleDelete(equip.id)}>
-                        Supprimer
-                      </Button>
+                {equipment.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">
+                      Aucun équipement trouvé
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  equipment.map((equip) => (
+                    <TableRow key={equip.id}>
+                      <TableCell>{equip.id}</TableCell>
+                      <TableCell>
+                        <Chip label={equip.type} color="primary" size="small" />
+                      </TableCell>
+                      <TableCell>{equip.model || '-'}</TableCell>
+                      <TableCell>
+                        {sites.find(site => site.id === equip.siteId)?.name || '-'}
+                      </TableCell>
+                      <TableCell>
+                        {departments.find(dept => dept.id === equip.departmentId)?.name || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={equip.status} 
+                          color={getStatusColor(equip.status) as any} 
+                          size="small" 
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {equip.installDate 
+                          ? new Date(equip.installDate).toLocaleDateString() 
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Button size="small" onClick={() => handleOpenDialog(equip)}>
+                          Modifier
+                        </Button>
+                        <Button size="small" color="error" onClick={() => handleDelete(equip.id)}>
+                          Supprimer
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -261,13 +402,30 @@ const EquipmentPage = () => {
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
               <TextField
-                name="name"
-                label="Nom de l'équipement"
+                name="id"
+                label="ID de l'équipement"
                 fullWidth
-                value={formData.name}
+                value={formData.id}
                 onChange={handleInputChange}
+                disabled={!!currentEquipment}
                 required
               />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Type d'équipement</InputLabel>
+                <Select
+                  name="type"
+                  value={formData.type}
+                  label="Type d'équipement"
+                  onChange={handleInputChange}
+                  disabled={!!currentEquipment} // Désactiver en mode édition
+                >
+                  {Object.values(EquipmentTypes).map((type) => (
+                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required>
@@ -311,6 +469,7 @@ const EquipmentPage = () => {
                 fullWidth
                 value={formData.model || ''}
                 onChange={handleInputChange}
+                required
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -336,39 +495,78 @@ const EquipmentPage = () => {
                 <InputLabel>Statut</InputLabel>
                 <Select
                   name="status"
-                  value={formData.status}
+                  value={formData.status || EquipmentStatus.ACTIVE}
                   label="Statut"
                   onChange={handleInputChange}
                 >
-                  <MenuItem value={EquipmentStatus.ACTIVE}>Actif</MenuItem>
-                  <MenuItem value={EquipmentStatus.MAINTENANCE}>Maintenance</MenuItem>
-                  <MenuItem value={EquipmentStatus.INACTIVE}>Inactif</MenuItem>
-                  <MenuItem value={EquipmentStatus.PLANNED}>Planifié</MenuItem>
-                  <MenuItem value={EquipmentStatus.UNDER_INSTALLATION}>En installation</MenuItem>
+                  {Object.values(EquipmentStatus).map((status) => (
+                    <MenuItem key={status} value={status}>{status}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                name="purchasePrice"
-                label="Prix d'achat"
-                type="number"
+                name="installDate"
+                label="Date d'installation"
+                type="date"
                 fullWidth
-                value={formData.purchasePrice || ''}
+                value={formData.installDate || ''}
                 onChange={handleInputChange}
+                InputLabelProps={{ shrink: true }}
+                required
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} md={6}>
               <TextField
-                name="description"
-                label="Description"
+                name="lastMaintenanceDate"
+                label="Dernière maintenance"
+                type="date"
                 fullWidth
-                multiline
-                rows={3}
-                value={formData.description || ''}
+                value={formData.lastMaintenanceDate || ''}
                 onChange={handleInputChange}
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
+
+            {/* Section des spécifications dynamiques */}
+            {currentSpecification && (
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                  Spécifications spécifiques au type {formData.type}
+                </Typography>
+                <TableContainer component={Paper}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Nom</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Valeur</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {currentSpecification.columns.map((column, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{column.name}</TableCell>
+                          <TableCell>{column.type}</TableCell>
+                          <TableCell>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              type={column.type === 'int' || column.type === 'float' || column.type === 'decimal' ? 'number' : 'text'}
+                              value={formData.specifications?.[column.name] || ''}
+                              onChange={(e) => handleSpecificationChange(column.name, e.target.value)}
+                              required={!column.nullable}
+                              placeholder={column.defaultValue || ''}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>

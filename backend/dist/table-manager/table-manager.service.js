@@ -20,39 +20,40 @@ let TableManagerService = class TableManagerService {
     constructor(dataSource) {
         this.dataSource = dataSource;
     }
-    async createTable(specification) {
+    async createTable(tableDefinition) {
+        let definition;
+        if ('tableName' in tableDefinition) {
+            definition = tableDefinition;
+        }
+        else {
+            const spec = tableDefinition;
+            definition = {
+                tableName: `spec_${spec.equipmentType.toLowerCase()}`,
+                columns: spec.columns
+            };
+        }
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
         try {
-            const tableName = `spec_${specification.equipmentType.toLowerCase()}`;
-            const columns = specification.columns.map(column => {
-                let columnDefinition = `${column.name} ${column.type}`;
-                if (column.type === 'varchar' && column.length) {
-                    columnDefinition += `(${column.length})`;
-                }
-                if (!column.nullable) {
-                    columnDefinition += ' NOT NULL';
-                }
-                if (column.defaultValue !== undefined) {
-                    if (column.type === 'int' || column.type === 'float' || column.type === 'decimal') {
-                        columnDefinition += column.defaultValue === '' ? ' DEFAULT NULL' : ` DEFAULT ${column.defaultValue}`;
-                    }
-                    else {
-                        columnDefinition += ` DEFAULT '${column.defaultValue}'`;
-                    }
-                }
-                return columnDefinition;
-            }).join(', ');
-            const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS ${tableName} (
-          id VARCHAR(36) PRIMARY KEY,
-          ${columns},
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-      `;
-            await queryRunner.query(createTableQuery);
+            const tableExists = await this.checkTableExists(definition.tableName);
+            if (tableExists) {
+                await this.dropTable(definition.tableName);
+            }
+            let query = `CREATE TABLE ${definition.tableName} (
+        id varchar(36) PRIMARY KEY,
+        site_id varchar(36) NOT NULL,
+        created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+        updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`;
+            for (const column of definition.columns) {
+                const columnType = column.type + (column.type.toLowerCase() === 'varchar' ? `(${column.length || 255})` : '');
+                const nullableStr = column.nullable ? 'NULL' : 'NOT NULL';
+                const defaultStr = column.defaultValue ? `DEFAULT '${column.defaultValue}'` : '';
+                query += `,\n        ${column.name} ${columnType} ${nullableStr} ${defaultStr}`.trim();
+            }
+            query += `,\n        FOREIGN KEY (site_id) REFERENCES site(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`;
+            await queryRunner.query(query);
             await queryRunner.commitTransaction();
         }
         catch (error) {
@@ -63,12 +64,16 @@ let TableManagerService = class TableManagerService {
             await queryRunner.release();
         }
     }
-    async dropTable(equipmentType) {
+    async checkTableExists(tableName) {
+        const result = await this.dataSource.query(`SELECT COUNT(*) as count FROM information_schema.tables 
+       WHERE table_schema = DATABASE() AND table_name = ?`, [tableName]);
+        return result[0].count > 0;
+    }
+    async dropTable(tableName) {
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
         try {
-            const tableName = `spec_${equipmentType.toLowerCase()}`;
             await queryRunner.query(`DROP TABLE IF EXISTS ${tableName}`);
             await queryRunner.commitTransaction();
         }

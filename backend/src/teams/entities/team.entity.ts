@@ -58,12 +58,12 @@ export class Team {
   equipmentType: string;
 
   @ManyToOne(() => Department, department => department.teams, {
-    onDelete: 'CASCADE'
+    onDelete: 'SET NULL'
   })
   @JoinColumn({ name: 'departmentId' })
   department: Department;
 
-  @Column()
+  @Column({ nullable: true })
   departmentId: string;
 
   @OneToMany(() => User, user => user.team)

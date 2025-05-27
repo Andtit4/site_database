@@ -107,6 +107,17 @@ async function initializeDatabase() {
     `);
     console.log('Table specifications créée');
 
+    await AppDataSource.query(`
+      CREATE TABLE IF NOT EXISTS site_specifications (
+        id varchar(36) PRIMARY KEY,
+        siteType ENUM('TOUR', 'SHELTER', 'PYLONE', 'BATIMENT', 'TOIT', 'TERRAIN', 'AUTRE') NOT NULL,
+        columns json NOT NULL,
+        createdAt timestamp DEFAULT CURRENT_TIMESTAMP,
+        updatedAt timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('Table site_specifications créée');
+
     console.log('Initialisation de la base de données terminée avec succès');
   } catch (error) {
     console.error('Erreur lors de l\'initialisation de la base de données:', error);

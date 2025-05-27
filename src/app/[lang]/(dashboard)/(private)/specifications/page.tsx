@@ -25,12 +25,21 @@ import {
   MenuItem,
   Grid,
   Chip,
+  FormControlLabel,
   Switch,
-  FormControlLabel
+  IconButton
 } from '@mui/material'
-import { specificationsService, equipmentService } from '@/services'
-import { Specification, SpecificationCategory, CreateSpecificationDto, UpdateSpecificationDto } from '@/services/specificationsService'
-import { EquipmentType } from '@/services/equipmentService'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
+import specificationsService from '@/services/specificationsService'
+import { 
+  Specification, 
+  CreateSpecificationDto, 
+  UpdateSpecificationDto, 
+  ColumnDefinition,
+  EquipmentTypes,
+  ColumnTypes
+} from '@/services/specificationsService'
 
 const SpecificationsPage = () => {
   const [specifications, setSpecifications] = useState<Specification[]>([])
@@ -39,13 +48,15 @@ const SpecificationsPage = () => {
   const [openDialog, setOpenDialog] = useState(false)
   const [currentSpecification, setCurrentSpecification] = useState<Specification | null>(null)
   const [formData, setFormData] = useState<CreateSpecificationDto>({
+    equipmentType: EquipmentTypes.ANTENNE,
+    columns: []
+  })
+  const [tempColumn, setTempColumn] = useState<ColumnDefinition>({
     name: '',
-    description: '',
-    category: SpecificationCategory.TECHNICAL,
-    value: '',
-    unit: '',
-    isStandard: true,
-    appliesTo: []
+    type: ColumnTypes.VARCHAR,
+    length: 255,
+    nullable: true,
+    defaultValue: ''
   })
 
   const fetchSpecifications = async () => {
@@ -53,9 +64,10 @@ const SpecificationsPage = () => {
       setLoading(true)
       const data = await specificationsService.getAllSpecifications()
       setSpecifications(data)
-    } catch (err) {
+      setError(null)
+    } catch (err: any) {
       console.error('Erreur lors de la récupération des spécifications:', err)
-      setError('Erreur lors du chargement des spécifications')
+      setError(err.message || 'Erreur lors du chargement des spécifications')
     } finally {
       setLoading(false)
     }
@@ -81,24 +93,14 @@ const SpecificationsPage = () => {
     if (specification) {
       setCurrentSpecification(specification)
       setFormData({
-        name: specification.name,
-        description: specification.description || '',
-        category: specification.category as SpecificationCategory,
-        value: specification.value,
-        unit: specification.unit || '',
-        isStandard: specification.isStandard,
-        appliesTo: specification.appliesTo || []
+        equipmentType: specification.equipmentType,
+        columns: [...specification.columns]
       })
     } else {
       setCurrentSpecification(null)
       setFormData({
-        name: '',
-        description: '',
-        category: SpecificationCategory.TECHNICAL,
-        value: '',
-        unit: '',
-        isStandard: true,
-        appliesTo: []
+        equipmentType: EquipmentTypes.ANTENNE,
+        columns: []
       })
     }
     setOpenDialog(true)
@@ -106,32 +108,93 @@ const SpecificationsPage = () => {
 
   const handleCloseDialog = () => {
     setOpenDialog(false)
+    setTempColumn({
+      name: '',
+      type: ColumnTypes.VARCHAR,
+      length: 255,
+      nullable: true,
+      defaultValue: ''
+    })
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target
+    
+    if (name === 'equipmentType') {
+      setFormData({
+        ...formData,
+        equipmentType: value as string
+      })
+    }
+  }
+
+  const handleColumnInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+    const { name, value } = e.target
+    
+    if (name === 'nullable') {
+      setTempColumn({
+        ...tempColumn,
+        nullable: value === 'true'
+      })
+    } else if (name === 'length' && value) {
+      setTempColumn({
+        ...tempColumn,
+        length: parseInt(value as string, 10)
+      })
+    } else {
+      setTempColumn({
+        ...tempColumn,
+        [name as string]: value
+      })
+    }
+  }
+
+  const handleAddColumn = () => {
+    if (!tempColumn.name || !tempColumn.type) {
+      alert('Le nom et le type de colonne sont requis')
+      return
+    }
+    
+    const newColumn: ColumnDefinition = {
+      ...tempColumn
+    }
+    
     setFormData({
       ...formData,
-      [name as string]: value
+      columns: [...formData.columns, newColumn]
+    })
+    
+    // Réinitialiser le formulaire de colonne temporaire
+    setTempColumn({
+      name: '',
+      type: ColumnTypes.VARCHAR,
+      length: 255,
+      nullable: true,
+      defaultValue: ''
     })
   }
 
-  const handleSwitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRemoveColumn = (index: number) => {
+    const updatedColumns = [...formData.columns]
+    updatedColumns.splice(index, 1)
     setFormData({
       ...formData,
-      [e.target.name]: e.target.checked
-    })
-  }
-
-  const handleEquipmentTypeChange = (event: React.ChangeEvent<{ value: unknown }>) => {
-    setFormData({
-      ...formData,
-      appliesTo: event.target.value as string[]
+      columns: updatedColumns
     })
   }
 
   const handleSubmit = async () => {
     try {
+      if (!formData.equipmentType) {
+        alert('Le type d\'équipement est requis')
+        return
+      }
+      
+      if (formData.columns.length === 0) {
+        alert('Vous devez ajouter au moins une colonne')
+        return
+      }
+      
       if (currentSpecification) {
         // Mise à jour de la spécification
         const updateData: UpdateSpecificationDto = { ...formData }
@@ -143,20 +206,22 @@ const SpecificationsPage = () => {
       
       handleCloseDialog()
       fetchSpecifications() // Recharger la liste
-    } catch (err) {
+      setError(null)
+    } catch (err: any) {
       console.error('Erreur lors de l\'enregistrement de la spécification:', err)
-      setError('Erreur lors de l\'enregistrement de la spécification')
+      setError(err.message || 'Erreur lors de l\'enregistrement de la spécification')
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette spécification?')) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette spécification? Cette action supprimera également la table correspondante en base de données.')) {
       try {
         await specificationsService.deleteSpecification(id)
         fetchSpecifications() // Recharger la liste
-      } catch (err) {
+        setError(null)
+      } catch (err: any) {
         console.error('Erreur lors de la suppression de la spécification:', err)
-        setError('Erreur lors de la suppression de la spécification')
+        setError(err.message || 'Erreur lors de la suppression de la spécification')
       }
     }
   }
@@ -165,18 +230,18 @@ const SpecificationsPage = () => {
     return <Typography>Chargement des spécifications...</Typography>
   }
 
-  if (error) {
-    return <Typography color="error">{error}</Typography>
-  }
-
   return (
     <Box sx={{ p: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4">Gestion des Spécifications</Typography>
+        <Typography variant="h4">Gestion des Spécifications d'Équipements</Typography>
         <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
           Ajouter une spécification
         </Button>
       </Box>
+
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+      )}
 
       <Card>
         <CardContent>
@@ -184,49 +249,42 @@ const SpecificationsPage = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Nom</TableCell>
-                  <TableCell>Catégorie</TableCell>
-                  <TableCell>Valeur</TableCell>
-                  <TableCell>Unité</TableCell>
-                  <TableCell>Standard</TableCell>
-                  <TableCell>Équipements</TableCell>
+                  <TableCell>Type d'Équipement</TableCell>
+                  <TableCell>Nombre de Colonnes</TableCell>
+                  <TableCell>Nom de la Table</TableCell>
+                  <TableCell>Date de Création</TableCell>
+                  <TableCell>Date de Mise à Jour</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {specifications.map((specification) => (
-                  <TableRow key={specification.id}>
-                    <TableCell>{specification.name}</TableCell>
-                    <TableCell>{specification.category}</TableCell>
-                    <TableCell>{specification.value}</TableCell>
-                    <TableCell>{specification.unit || '-'}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={specification.isStandard ? 'Standard' : 'Spécifique'} 
-                        color={specification.isStandard ? 'success' : 'info'} 
-                        size="small" 
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {specification.appliesTo?.map((type, index) => (
-                        <Chip 
-                          key={index}
-                          label={type} 
-                          size="small" 
-                          sx={{ mr: 0.5, mb: 0.5 }}
-                        />
-                      ))}
-                    </TableCell>
-                    <TableCell>
-                      <Button size="small" onClick={() => handleOpenDialog(specification)}>
-                        Modifier
-                      </Button>
-                      <Button size="small" color="error" onClick={() => handleDelete(specification.id)}>
-                        Supprimer
-                      </Button>
+                {specifications.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      Aucune spécification trouvée
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  specifications.map((specification) => (
+                    <TableRow key={specification.id}>
+                      <TableCell>
+                        <Chip label={specification.equipmentType} color="primary" />
+                      </TableCell>
+                      <TableCell>{specification.columns.length}</TableCell>
+                      <TableCell>{`spec_${specification.equipmentType.toLowerCase()}`}</TableCell>
+                      <TableCell>{new Date(specification.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(specification.updatedAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button size="small" onClick={() => handleOpenDialog(specification)}>
+                          Modifier
+                        </Button>
+                        <Button size="small" color="error" onClick={() => handleDelete(specification.id)}>
+                          Supprimer
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -239,110 +297,156 @@ const SpecificationsPage = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Type d'Équipement</InputLabel>
+                <Select
+                  name="equipmentType"
+                  value={formData.equipmentType}
+                  label="Type d'Équipement"
+                  onChange={handleInputChange}
+                  disabled={!!currentSpecification} // Désactiver si en mode édition
+                >
+                  {Object.values(EquipmentTypes).map((type) => (
+                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                Colonnes de la Table
+              </Typography>
+              <TableContainer component={Paper}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Nom</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Longueur</TableCell>
+                      <TableCell>Nullable</TableCell>
+                      <TableCell>Valeur par Défaut</TableCell>
+                      <TableCell>Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {formData.columns.map((column, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{column.name}</TableCell>
+                        <TableCell>{column.type}</TableCell>
+                        <TableCell>{column.length || '-'}</TableCell>
+                        <TableCell>{column.nullable ? 'Oui' : 'Non'}</TableCell>
+                        <TableCell>{column.defaultValue || '-'}</TableCell>
+                        <TableCell>
+                          <IconButton 
+                            size="small" 
+                            color="error"
+                            onClick={() => handleRemoveColumn(index)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
+                Ajouter une nouvelle colonne
+              </Typography>
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
               <TextField
                 name="name"
-                label="Nom de la spécification"
+                label="Nom de la colonne"
                 fullWidth
-                value={formData.name}
-                onChange={handleInputChange}
+                value={tempColumn.name}
+                onChange={handleColumnInputChange}
                 required
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            
+            <Grid item xs={12} md={3}>
               <FormControl fullWidth required>
-                <InputLabel>Catégorie</InputLabel>
+                <InputLabel>Type</InputLabel>
                 <Select
-                  name="category"
-                  value={formData.category}
-                  label="Catégorie"
-                  onChange={handleInputChange}
+                  name="type"
+                  value={tempColumn.type}
+                  label="Type"
+                  onChange={handleColumnInputChange}
                 >
-                  <MenuItem value={SpecificationCategory.TECHNICAL}>Technique</MenuItem>
-                  <MenuItem value={SpecificationCategory.PERFORMANCE}>Performance</MenuItem>
-                  <MenuItem value={SpecificationCategory.SAFETY}>Sécurité</MenuItem>
-                  <MenuItem value={SpecificationCategory.ENVIRONMENTAL}>Environnement</MenuItem>
-                  <MenuItem value={SpecificationCategory.COMPLIANCE}>Conformité</MenuItem>
+                  {Object.values(ColumnTypes).map((type) => (
+                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
+            
+            <Grid item xs={12} md={2}>
               <TextField
-                name="value"
-                label="Valeur"
+                name="length"
+                label="Longueur"
+                type="number"
                 fullWidth
-                value={formData.value}
-                onChange={handleInputChange}
-                required
+                value={tempColumn.length || ''}
+                onChange={handleColumnInputChange}
+                disabled={tempColumn.type !== ColumnTypes.VARCHAR}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                name="unit"
-                label="Unité"
-                fullWidth
-                value={formData.unit || ''}
-                onChange={handleInputChange}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    name="isStandard"
-                    checked={formData.isStandard}
-                    onChange={handleSwitchChange}
-                    color="primary"
-                  />
-                }
-                label="Spécification standard"
-              />
-            </Grid>
-            <Grid item xs={12}>
+            
+            <Grid item xs={12} md={3}>
               <FormControl fullWidth>
-                <InputLabel>S'applique aux équipements</InputLabel>
+                <InputLabel>Nullable</InputLabel>
                 <Select
-                  name="appliesTo"
-                  multiple
-                  value={formData.appliesTo || []}
-                  label="S'applique aux équipements"
-                  onChange={handleEquipmentTypeChange as any}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {(selected as string[]).map((value) => (
-                        <Chip key={value} label={value} />
-                      ))}
-                    </Box>
-                  )}
+                  name="nullable"
+                  value={tempColumn.nullable ? 'true' : 'false'}
+                  label="Nullable"
+                  onChange={handleColumnInputChange}
                 >
-                  <MenuItem value={EquipmentType.ANTENNA}>Antennes</MenuItem>
-                  <MenuItem value={EquipmentType.ROUTER}>Routeurs</MenuItem>
-                  <MenuItem value={EquipmentType.BATTERY}>Batteries</MenuItem>
-                  <MenuItem value={EquipmentType.GENERATOR}>Générateurs</MenuItem>
-                  <MenuItem value={EquipmentType.COOLING}>Refroidissement</MenuItem>
-                  <MenuItem value={EquipmentType.SHELTER}>Shelters</MenuItem>
-                  <MenuItem value={EquipmentType.TOWER}>Pylônes</MenuItem>
-                  <MenuItem value={EquipmentType.SECURITY}>Sécurité</MenuItem>
+                  <MenuItem value="true">Oui</MenuItem>
+                  <MenuItem value="false">Non</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            
+            <Grid item xs={12} md={4}>
               <TextField
-                name="description"
-                label="Description"
+                name="defaultValue"
+                label="Valeur par défaut"
                 fullWidth
-                multiline
-                rows={3}
-                value={formData.description || ''}
-                onChange={handleInputChange}
+                value={tempColumn.defaultValue || ''}
+                onChange={handleColumnInputChange}
               />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={handleAddColumn}
+                startIcon={<AddIcon />}
+                fullWidth
+                sx={{ height: '100%' }}
+              >
+                Ajouter la colonne
+              </Button>
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Annuler</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
-            {currentSpecification ? 'Mettre à jour' : 'Ajouter'}
+          <Button 
+            onClick={handleSubmit} 
+            variant="contained" 
+            color="primary"
+            disabled={formData.columns.length === 0}
+          >
+            {currentSpecification ? 'Mettre à jour' : 'Créer la spécification'}
           </Button>
         </DialogActions>
       </Dialog>

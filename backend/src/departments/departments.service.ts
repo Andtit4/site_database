@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
-import { Department } from '../entities/department.entity';
+import { Department, DepartmentType } from '../entities/department.entity';
 import { User } from '../entities/user.entity';
 import { CreateDepartmentDto, UpdateDepartmentDto, DepartmentFilterDto } from '../dto/department.dto';
 import { EquipmentType } from '../entities/equipment.entity';
@@ -9,6 +9,8 @@ import { EmailService } from '../services/email.service';
 import { CreateDepartmentUserDto } from '../auth/dto/create-department-user.dto';
 import { UsersService } from '../users/users.service';
 import { v4 as uuidv4 } from 'uuid';
+import { Team } from '../teams/entities/team.entity';
+import { TeamStatus } from '../teams/entities/team.entity';
 
 @Injectable()
 export class DepartmentsService {
@@ -176,9 +178,15 @@ export class DepartmentsService {
     try {
       const departmentQuery = this.departmentsRepository.createQueryBuilder('department')
         .where('department.id = :id', { id })
-        .andWhere('department.isDeleted = :isDeleted', { isDeleted: false })
-        .leftJoinAndSelect('department.equipment', 'equipment', 'equipment.isDeleted = :equipDeleted', { equipDeleted: false })
-        .leftJoinAndSelect('department.teams', 'teams', 'teams.isDeleted = :teamsDeleted', { teamsDeleted: false });
+        .andWhere('department.isDeleted = :isDeleted', { isDeleted: false });
+      
+      // Charger les équipements non supprimés
+      departmentQuery.leftJoinAndSelect('department.equipment', 'equipment', 'equipment.isDeleted = :equipDeleted', { equipDeleted: false });
+      
+      // Charger les équipes non supprimées associées à ce département
+      // Utiliser une jointure explicite pour éviter les problèmes avec departmentId null
+      departmentQuery.leftJoinAndSelect('department.teams', 'teams', 'teams.departmentId = :deptId AND teams.isDeleted = :teamsDeleted', 
+        { deptId: id, teamsDeleted: false });
 
       const department = await departmentQuery.getOne();
 
@@ -208,10 +216,10 @@ export class DepartmentsService {
       // si le nom est modifié et s'il existe déjà faire une vérification
       if (updateDepartmentDto.name && updateDepartmentDto.name !== department.name) {
         const existingDepartment = await this.departmentsRepository.findOne({
-          where: { name: updateDepartmentDto.name },
+          where: { name: updateDepartmentDto.name, isDeleted: false },
         });
 
-        if (existingDepartment) {
+        if (existingDepartment && existingDepartment.id !== id) {
           throw new ConflictException(`Un département avec le nom '${updateDepartmentDto.name}' existe déjà`);
         }
       }
@@ -221,18 +229,23 @@ export class DepartmentsService {
         (updateDepartmentDto as any).managedEquipmentTypes = updateDepartmentDto.managedEquipmentTypes.join(',');
       }
 
-      // Important: Ne pas modifier les équipes qui pourraient avoir ce département
-      // S'assurer que les relations ne sont pas touchées lors de la mise à jour
-      const teamsBefore = department.teams;
-
-      Object.assign(department, updateDepartmentDto);
+      // Sauvegarder les équipes avant de mettre à jour le département
+      const teamsBefore = department.teams ? [...department.teams] : [];
       
-      // Restaurer les équipes pour éviter de modifier leur lien avec le département
-      department.teams = teamsBefore;
+      // Exclure les champs de relation de la mise à jour
+      const updateData = { ...updateDepartmentDto };
+      delete updateData['teams']; // Assurez-vous que les relations ne sont pas incluses dans l'objet de mise à jour
+      
+      // Appliquer les mises à jour
+      Object.assign(department, updateData);
       
       this.logger.log(`Mise à jour du département: ${department.name}`);
       
-      const savedDepartment = await this.departmentsRepository.save(department);
+      // Enregistrer le département sans modifier les relations
+      const savedDepartment = await this.departmentsRepository.save({
+        ...department,
+        teams: undefined // Exclure explicitement les équipes de la sauvegarde
+      });
       
       // Reconvertir la chaîne en tableau pour la réponse
       if (savedDepartment.managedEquipmentTypes && typeof savedDepartment.managedEquipmentTypes === 'string') {
@@ -241,6 +254,9 @@ export class DepartmentsService {
           .filter(type => type) // Filtrer les valeurs vides
           .map(type => type as EquipmentType); // Convertir en type EquipmentType
       }
+      
+      // Réattacher les équipes à la réponse
+      savedDepartment.teams = teamsBefore;
       
       return savedDepartment;
     } catch (error) {
@@ -256,6 +272,27 @@ export class DepartmentsService {
       // Vérifier si le département existe
       if (!department) {
         throw new NotFoundException(`Département avec ID "${id}" non trouvé`);
+      }
+      
+      // Au lieu de mettre les departmentId à null, marquer aussi les équipes comme supprimées
+      if (department.teams && department.teams.length > 0) {
+        this.logger.log(`Marquage de ${department.teams.length} équipes comme supprimées`);
+        
+        // Obtenir l'accès au repository des équipes via l'EntityManager
+        const teamRepository = this.departmentsRepository.manager.getRepository(Team);
+        
+        // Marquer chaque équipe comme supprimée au lieu de modifier le departmentId
+        for (const team of department.teams) {
+          try {
+            await teamRepository.update(
+              { id: team.id },
+              { isDeleted: true }
+            );
+          } catch (err) {
+            this.logger.error(`Erreur lors du marquage de l'équipe ${team.id} comme supprimée: ${err.message}`);
+            // Continuer avec les autres équipes même si une échoue
+          }
+        }
       }
       
       // Soft delete - Marquer les utilisateurs liés à ce département comme supprimés

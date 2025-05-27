@@ -80,6 +80,14 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
         renderExpandedMenuItemIcon={{ icon: <i className='tabler-circle text-xs' /> }}
         menuSectionStyles={menuSectionStyles(verticalNavOptions, theme)}
       >
+        {/* Dashboard */}
+        <MenuItem 
+          href={`/${locale}/telecom-dashboard`}
+          icon={<i className='tabler-dashboard' />}
+        >
+          Tableau de bord
+        </MenuItem>
+        
         {/* Gestion des sites */}
         <SubMenu
           label="Sites" 
@@ -96,6 +104,15 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
         >
           <MenuItem href={`/${locale}/departments`}>Liste des départements</MenuItem>
           <MenuItem href={`/${locale}/departments`} onClick={() => window.dispatchEvent(new CustomEvent('openAddDepartmentDialog'))}>Ajouter un département</MenuItem>
+        </SubMenu>
+
+        {/* Gestion des équipes */}
+        <SubMenu 
+          label="Équipes" 
+          icon={<i className='tabler-users-group' />}
+        >
+          <MenuItem href={`/${locale}/teams`}>Liste des équipes</MenuItem>
+          <MenuItem href={`/${locale}/teams`} onClick={() => window.dispatchEvent(new CustomEvent('openAddTeamDialog'))}>Ajouter une équipe</MenuItem>
         </SubMenu>
 
         {/* Gestion des équipements */}

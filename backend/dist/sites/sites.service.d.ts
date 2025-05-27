@@ -19,4 +19,6 @@ export declare class SitesService {
     assignTeams(siteId: string, teamIds: string[]): Promise<Site>;
     removeTeams(siteId: string, teamIds: string[]): Promise<Site>;
     getSiteTeams(siteId: string): Promise<Team[]>;
+    getSiteSpecifications(id: string): Promise<Record<string, any>>;
+    updateSiteSpecifications(id: string, specifications: Record<string, any>): Promise<Site>;
 }

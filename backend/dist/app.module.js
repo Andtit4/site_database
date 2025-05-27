@@ -20,6 +20,8 @@ const specifications_module_1 = require("./specifications/specifications.module"
 const auth_module_1 = require("./auth/auth.module");
 const users_module_1 = require("./users/users.module");
 const typeorm_config_1 = require("./config/typeorm.config");
+const site_specifications_module_1 = require("./site-specifications/site-specifications.module");
+const table_manager_module_1 = require("./table-manager/table-manager.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -32,7 +34,7 @@ exports.AppModule = AppModule = __decorate([
             typeorm_1.TypeOrmModule.forRootAsync({
                 imports: [config_1.ConfigModule],
                 inject: [config_1.ConfigService],
-                useFactory: typeorm_config_1.typeOrmConfig,
+                useFactory: (configService) => (0, typeorm_config_1.typeOrmConfig)(configService)
             }),
             sites_module_1.SitesModule,
             equipment_module_1.EquipmentModule,
@@ -41,6 +43,8 @@ exports.AppModule = AppModule = __decorate([
             specifications_module_1.SpecificationsModule,
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
+            site_specifications_module_1.SiteSpecificationsModule,
+            table_manager_module_1.TableManagerModule
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

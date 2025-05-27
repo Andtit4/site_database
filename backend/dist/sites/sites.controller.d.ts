@@ -21,4 +21,6 @@ export declare class SitesController {
         teamIds: string[];
     }): Promise<Site>;
     getSiteTeams(id: string): Promise<import("../teams/entities/team.entity").Team[]>;
+    getSiteSpecifications(id: string): Promise<Record<string, any>>;
+    updateSiteSpecifications(id: string, specifications: Record<string, any>): Promise<Site>;
 }
