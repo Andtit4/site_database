@@ -33,8 +33,10 @@ export enum SiteTypes {
   SHELTER = 'SHELTER',
   PYLONE = 'PYLONE',
   BATIMENT = 'BATIMENT',
-  TOIT = 'TOIT',
-  TERRAIN = 'TERRAIN',
+  TOIT_BATIMENT = 'TOIT_BATIMENT',
+  ROOFTOP = 'ROOFTOP',
+  TERRAIN_BAILLE = 'TERRAIN_BAILLE',
+  TERRAIN_PROPRIETAIRE = 'TERRAIN_PROPRIETAIRE',
   AUTRE = 'AUTRE'
 }
 
@@ -54,7 +56,9 @@ const siteSpecificationsService = {
   getAllSiteSpecifications: async (): Promise<SiteSpecification[]> => {
     try {
       const response = await api.get('/site-specifications');
-      return response.data;
+
+      
+return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des spécifications de sites:', error);
       throw new Error('Impossible de récupérer les spécifications de sites');
@@ -64,7 +68,9 @@ const siteSpecificationsService = {
   getSiteSpecificationsByType: async (siteType: string): Promise<SiteSpecification[]> => {
     try {
       const response = await api.get(`/site-specifications/type/${siteType}`);
-      return response.data;
+
+      
+return response.data;
     } catch (error) {
       console.error(`Erreur lors de la récupération des spécifications pour le type de site ${siteType}:`, error);
       throw new Error(`Impossible de récupérer les spécifications pour le type de site ${siteType}`);
@@ -74,7 +80,9 @@ const siteSpecificationsService = {
   getSiteSpecificationById: async (id: string): Promise<SiteSpecification> => {
     try {
       const response = await api.get(`/site-specifications/${id}`);
-      return response.data;
+
+      
+return response.data;
     } catch (error) {
       console.error(`Erreur lors de la récupération de la spécification de site ${id}:`, error);
       throw new Error(`Spécification de site avec l'ID ${id} non trouvée`);
@@ -84,7 +92,9 @@ const siteSpecificationsService = {
   createSiteSpecification: async (specification: CreateSiteSpecificationDto): Promise<SiteSpecification> => {
     try {
       const response = await api.post('/site-specifications', specification);
-      return response.data;
+
+      
+return response.data;
     } catch (error) {
       console.error('Erreur lors de la création de la spécification de site:', error);
       throw new Error('Impossible de créer la spécification de site');
@@ -94,7 +104,9 @@ const siteSpecificationsService = {
   updateSiteSpecification: async (id: string, specification: UpdateSiteSpecificationDto): Promise<SiteSpecification> => {
     try {
       const response = await api.put(`/site-specifications/${id}`, specification);
-      return response.data;
+
+      
+return response.data;
     } catch (error) {
       console.error(`Erreur lors de la mise à jour de la spécification de site ${id}:`, error);
       throw new Error(`Impossible de mettre à jour la spécification de site ${id}`);
@@ -114,7 +126,9 @@ const siteSpecificationsService = {
   getSpecificationsForSite: async (siteId: string): Promise<any> => {
     try {
       const response = await api.get(`/sites/${siteId}/specifications`);
-      return response.data;
+
+      
+return response.data;
     } catch (error) {
       console.error(`Erreur lors de la récupération des spécifications pour le site ${siteId}:`, error);
       throw new Error(`Impossible de récupérer les spécifications pour le site ${siteId}`);
@@ -125,7 +139,9 @@ const siteSpecificationsService = {
   updateSpecificationsForSite: async (siteId: string, specifications: any): Promise<any> => {
     try {
       const response = await api.patch(`/sites/${siteId}/specifications`, specifications);
-      return response.data;
+
+      
+return response.data;
     } catch (error) {
       console.error(`Erreur lors de la mise à jour des spécifications pour le site ${siteId}:`, error);
       throw new Error(`Impossible de mettre à jour les spécifications pour le site ${siteId}`);

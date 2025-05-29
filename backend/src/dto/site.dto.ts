@@ -1,6 +1,7 @@
 import { IsString, IsNotEmpty, IsEnum, IsOptional, IsNumber, ValidateNested, IsArray, IsLatitude, IsLongitude, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SiteStatus, SiteType } from '../entities/site.entity';
+import { SiteStatus } from '../entities/site.entity';
+import { SiteTypes } from '../site-specifications/dto/create-site-specification.dto';
 import { CreateEquipmentDto } from './equipment.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -78,10 +79,10 @@ export class CreateSiteDto {
 
   @ApiPropertyOptional({
     description: 'Type de site (pour les spécifications dynamiques)',
-    enum: SiteType,
-    example: SiteType.TOUR
+    enum: SiteTypes,
+    example: SiteTypes.TOUR
   })
-  @IsEnum(SiteType)
+  @IsEnum(SiteTypes)
   @IsOptional()
   type?: string;
 
@@ -175,10 +176,10 @@ export class UpdateSiteDto {
 
   @ApiPropertyOptional({
     description: 'Type de site (pour les spécifications dynamiques)',
-    enum: SiteType,
-    example: SiteType.TOUR
+    enum: SiteTypes,
+    example: SiteTypes.TOUR
   })
-  @IsEnum(SiteType)
+  @IsEnum(SiteTypes)
   @IsOptional()
   type?: string;
 

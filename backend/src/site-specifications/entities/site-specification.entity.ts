@@ -20,15 +20,20 @@ export class SiteSpecification {
       'SHELTER',
       'PYLONE',
       'BATIMENT',
-      'TOIT',
-      'TERRAIN',
+      'TOIT_BATIMENT',
+      'ROOFTOP',
+      'TERRAIN_BAILLE',
+      'TERRAIN_PROPRIETAIRE',
       'AUTRE'
     ],
     nullable: false
   })
   siteType: string;
 
-  @Column('json', { nullable: false })
+  @Column({
+    type: 'json',
+    nullable: false
+  })
   columns: Array<{
     name: string;
     type: string;

@@ -13,6 +13,7 @@ exports.SiteFilterDto = exports.UpdateSiteDto = exports.CreateSiteDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const site_entity_1 = require("../entities/site.entity");
+const create_site_specification_dto_1 = require("../site-specifications/dto/create-site-specification.dto");
 const equipment_dto_1 = require("./equipment.dto");
 const swagger_1 = require("@nestjs/swagger");
 class CreateSiteDto {
@@ -103,10 +104,10 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Type de site (pour les spécifications dynamiques)',
-        enum: site_entity_1.SiteType,
-        example: site_entity_1.SiteType.TOUR
+        enum: create_site_specification_dto_1.SiteTypes,
+        example: create_site_specification_dto_1.SiteTypes.TOUR
     }),
-    (0, class_validator_1.IsEnum)(site_entity_1.SiteType),
+    (0, class_validator_1.IsEnum)(create_site_specification_dto_1.SiteTypes),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateSiteDto.prototype, "type", void 0);
@@ -212,10 +213,10 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Type de site (pour les spécifications dynamiques)',
-        enum: site_entity_1.SiteType,
-        example: site_entity_1.SiteType.TOUR
+        enum: create_site_specification_dto_1.SiteTypes,
+        example: create_site_specification_dto_1.SiteTypes.TOUR
     }),
-    (0, class_validator_1.IsEnum)(site_entity_1.SiteType),
+    (0, class_validator_1.IsEnum)(create_site_specification_dto_1.SiteTypes),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateSiteDto.prototype, "type", void 0);

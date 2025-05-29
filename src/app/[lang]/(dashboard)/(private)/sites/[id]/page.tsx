@@ -26,16 +26,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
-  TextField,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Switch,
-  FormControlLabel,
-  Tooltip,
-  Skeleton
+  IconButton
 } from '@mui/material'
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -46,16 +37,11 @@ import EquipmentIcon from '@mui/icons-material/Widgets'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
 import InfoIcon from '@mui/icons-material/Info'
 import ConstructionIcon from '@mui/icons-material/Construction'
-import SaveIcon from '@mui/icons-material/Save'
-import CancelIcon from '@mui/icons-material/Cancel'
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 
 import { sitesService } from '@/services'
 import siteSpecificationsService from '@/services/siteSpecificationsService'
 import { SiteStatus } from '@/services/sitesService'
 import type { Site } from '@/services/sitesService'
-import { ColumnTypes } from '@/services/siteSpecificationsService'
-import { useSnackbar } from 'notistack'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -93,23 +79,12 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
   const [equipments, setEquipments] = useState<any[]>([])
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [siteType, setSiteType] = useState<any>(null)
-  
-  // Nouveaux états pour la gestion des spécifications
-  const [editingSpecifications, setEditingSpecifications] = useState(false)
-  const [specificationValues, setSpecificationValues] = useState<Record<string, any>>({})
-  const [savingSpecifications, setSavingSpecifications] = useState(false)
-  const { enqueueSnackbar } = useSnackbar()
 
   const fetchSite = async () => {
     try {
       setLoading(true)
       const data = await sitesService.getSiteById(params.id)
       setSite(data)
-      
-      // Initialiser les valeurs de spécifications
-      if (data.specifications) {
-        setSpecificationValues(data.specifications)
-      }
       
       // Charger les équipements du site
       try {
@@ -126,26 +101,6 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
           const specifications = await siteSpecificationsService.getSiteSpecificationsByType(data.type)
           if (specifications && specifications.length > 0) {
             setSiteType(specifications[0])
-            
-            // Initialiser les valeurs manquantes avec des valeurs par défaut selon le type
-            if (data.specifications) {
-              const updatedValues = { ...data.specifications }
-              specifications[0].columns.forEach((column: any) => {
-                if (!(column.name in updatedValues)) {
-                  // Valeur par défaut selon le type de données
-                  if (column.type === ColumnTypes.VARCHAR || column.type === ColumnTypes.TEXT) {
-                    updatedValues[column.name] = column.defaultValue || ''
-                  } else if (column.type === ColumnTypes.INTEGER || column.type === ColumnTypes.FLOAT || column.type === ColumnTypes.DECIMAL) {
-                    updatedValues[column.name] = column.defaultValue ? parseFloat(column.defaultValue) : null
-                  } else if (column.type === ColumnTypes.BOOLEAN) {
-                    updatedValues[column.name] = column.defaultValue === 'true'
-                  } else if (column.type === ColumnTypes.DATE || column.type === ColumnTypes.DATETIME) {
-                    updatedValues[column.name] = column.defaultValue || null
-                  }
-                }
-              })
-              setSpecificationValues(updatedValues)
-            }
           }
         } catch (err) {
           console.error('Erreur lors du chargement des spécifications du type:', err)
@@ -242,153 +197,6 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
 
   const navigateToEquipmentDetails = (equipmentId: string) => {
     router.push(`/${lang}/equipment/${equipmentId}`)
-  }
-
-  // Ajouter des gestionnaires pour l'édition des spécifications
-  const handleSpecificationEdit = () => {
-    setEditingSpecifications(true)
-  }
-
-  const handleSpecificationCancel = () => {
-    // Réinitialiser les valeurs depuis le site
-    if (site?.specifications) {
-      setSpecificationValues(site.specifications)
-    }
-    setEditingSpecifications(false)
-  }
-
-  const handleSpecificationSave = async () => {
-    try {
-      setSavingSpecifications(true)
-      await siteSpecificationsService.updateSpecificationsForSite(params.id, specificationValues)
-      
-      // Mettre à jour le site localement
-      if (site) {
-        const updatedSite = { ...site, specifications: specificationValues }
-        setSite(updatedSite)
-      }
-      
-      setEditingSpecifications(false)
-      enqueueSnackbar('Spécifications mises à jour avec succès', { variant: 'success' })
-    } catch (err: any) {
-      console.error('Erreur lors de la mise à jour des spécifications:', err)
-      enqueueSnackbar('Erreur lors de la mise à jour des spécifications', { variant: 'error' })
-    } finally {
-      setSavingSpecifications(false)
-    }
-  }
-
-  const handleSpecificationChange = (name: string, value: any) => {
-    setSpecificationValues(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
-
-  // Fonction pour formatter les valeurs selon leur type
-  const formatSpecificationValue = (value: any, columnDef: any) => {
-    if (value === null || value === undefined) return '-'
-    
-    if (!columnDef) return String(value)
-    
-    switch (columnDef.type) {
-      case ColumnTypes.BOOLEAN:
-        return value ? 'Oui' : 'Non'
-      case ColumnTypes.DATE:
-        return value ? new Date(value).toLocaleDateString('fr-FR') : '-'
-      case ColumnTypes.DATETIME:
-        return value ? new Date(value).toLocaleString('fr-FR') : '-'
-      case ColumnTypes.DECIMAL:
-      case ColumnTypes.FLOAT:
-        return typeof value === 'number' ? value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(value)
-      default:
-        return String(value)
-    }
-  }
-
-  // Fonction pour rendre le contrôle d'édition approprié selon le type de colonne
-  const renderEditControl = (name: string, value: any, columnDef: any) => {
-    if (!columnDef) return (
-      <TextField
-        fullWidth
-        value={value || ''}
-        onChange={(e) => handleSpecificationChange(name, e.target.value)}
-      />
-    )
-    
-    switch (columnDef.type) {
-      case ColumnTypes.BOOLEAN:
-        return (
-          <FormControlLabel
-            control={
-              <Switch
-                checked={Boolean(value)}
-                onChange={(e) => handleSpecificationChange(name, e.target.checked)}
-              />
-            }
-            label={Boolean(value) ? 'Oui' : 'Non'}
-          />
-        )
-      case ColumnTypes.INTEGER:
-        return (
-          <TextField
-            fullWidth
-            type="number"
-            value={value !== null && value !== undefined ? value : ''}
-            onChange={(e) => handleSpecificationChange(name, e.target.value === '' ? null : parseInt(e.target.value, 10))}
-            InputProps={{ inputProps: { step: 1 } }}
-          />
-        )
-      case ColumnTypes.FLOAT:
-      case ColumnTypes.DECIMAL:
-        return (
-          <TextField
-            fullWidth
-            type="number"
-            value={value !== null && value !== undefined ? value : ''}
-            onChange={(e) => handleSpecificationChange(name, e.target.value === '' ? null : parseFloat(e.target.value))}
-            InputProps={{ inputProps: { step: 0.01 } }}
-          />
-        )
-      case ColumnTypes.DATE:
-        return (
-          <TextField
-            fullWidth
-            type="date"
-            value={value || ''}
-            onChange={(e) => handleSpecificationChange(name, e.target.value)}
-            InputLabelProps={{ shrink: true }}
-          />
-        )
-      case ColumnTypes.DATETIME:
-        return (
-          <TextField
-            fullWidth
-            type="datetime-local"
-            value={value || ''}
-            onChange={(e) => handleSpecificationChange(name, e.target.value)}
-            InputLabelProps={{ shrink: true }}
-          />
-        )
-      case ColumnTypes.TEXT:
-        return (
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            value={value || ''}
-            onChange={(e) => handleSpecificationChange(name, e.target.value)}
-          />
-        )
-      default:
-        return (
-          <TextField
-            fullWidth
-            value={value || ''}
-            onChange={(e) => handleSpecificationChange(name, e.target.value)}
-          />
-        )
-    }
   }
 
   if (loading) {
@@ -587,120 +395,47 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
         <TabPanel value={tabValue} index={0}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">
-                  Spécifications spécifiques au type {site.type || 'Non défini'}
-                </Typography>
-                
-                {!editingSpecifications ? (
-                  <Button
-                    startIcon={<EditIcon />}
-                    variant="outlined"
-                    onClick={handleSpecificationEdit}
-                    disabled={!site.type || site.status === SiteStatus.DELETED}
-                  >
-                    Modifier les spécifications
-                  </Button>
-                ) : (
-                  <Box>
-                    <Button
-                      startIcon={<SaveIcon />}
-                      variant="contained"
-                      color="primary"
-                      onClick={handleSpecificationSave}
-                      disabled={savingSpecifications}
-                      sx={{ mr: 1 }}
-                    >
-                      {savingSpecifications ? 'Enregistrement...' : 'Enregistrer'}
-                    </Button>
-                    <Button
-                      startIcon={<CancelIcon />}
-                      variant="outlined"
-                      onClick={handleSpecificationCancel}
-                      disabled={savingSpecifications}
-                    >
-                      Annuler
-                    </Button>
-                  </Box>
-                )}
-              </Box>
+              <Typography variant="h6" gutterBottom>
+                Spécifications spécifiques au type {site.type || 'Non défini'}
+              </Typography>
               
-              {!site.type ? (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  Ce site n'a pas de type défini. Veuillez d'abord définir un type pour ce site afin de pouvoir spécifier ses caractéristiques.
-                </Alert>
-              ) : null}
-              
-              {site.type && !siteType ? (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Aucune spécification n'a été définie pour le type de site "{site.type}". Veuillez contacter un administrateur pour configurer les spécifications.
-                </Alert>
-              ) : null}
-              
-              {site.type && siteType && siteType.columns.length === 0 ? (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Aucune colonne n'a été définie pour le type de site "{site.type}". Veuillez contacter un administrateur pour configurer les colonnes.
-                </Alert>
-              ) : null}
-              
-              {site.type && siteType && siteType.columns.length > 0 ? (
+              {site.specifications && Object.keys(site.specifications).length > 0 ? (
                 <TableContainer component={Paper}>
                   <Table>
                     <TableHead>
                       <TableRow>
                         <TableCell>Nom</TableCell>
                         <TableCell>Valeur</TableCell>
-                        <TableCell>Type</TableCell>
-                        <TableCell align="center">Requis</TableCell>
+                        {siteType && (
+                          <TableCell>Type</TableCell>
+                        )}
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {siteType.columns.map((columnDef: any) => {
-                        const value = specificationValues[columnDef.name];
+                      {Object.entries(site.specifications).map(([key, value]) => {
+                        // Trouver le type de la colonne si disponible
+                        const columnDef = siteType?.columns?.find((col: any) => col.name === key);
                         
                         return (
-                          <TableRow key={columnDef.name}>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                {columnDef.name}
-                                {columnDef.description && (
-                                  <Tooltip title={columnDef.description}>
-                                    <HelpOutlineIcon sx={{ ml: 1, fontSize: '1rem', color: 'text.secondary' }} />
-                                  </Tooltip>
-                                )}
-                              </Box>
-                            </TableCell>
-                            <TableCell>
-                              {editingSpecifications ? (
-                                renderEditControl(columnDef.name, value, columnDef)
-                              ) : (
-                                formatSpecificationValue(value, columnDef)
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {`${columnDef.type}${columnDef.length ? `(${columnDef.length})` : ''}`}
-                            </TableCell>
-                            <TableCell align="center">
-                              {columnDef.nullable === false ? (
-                                <Chip size="small" label="Requis" color="primary" />
-                              ) : (
-                                <Chip size="small" label="Optionnel" variant="outlined" />
-                              )}
-                            </TableCell>
+                          <TableRow key={key}>
+                            <TableCell>{key}</TableCell>
+                            <TableCell>{value !== null && value !== undefined ? String(value) : '-'}</TableCell>
+                            {siteType && (
+                              <TableCell>
+                                {columnDef ? `${columnDef.type}${columnDef.length ? `(${columnDef.length})` : ''}` : '-'}
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
                     </TableBody>
                   </Table>
                 </TableContainer>
-              ) : null}
-              
-              {/* Afficher un message si le site n'a aucune spécification alors qu'il a un type valide avec des colonnes */}
-              {site.type && siteType && siteType.columns.length > 0 && Object.keys(specificationValues).length === 0 && !editingSpecifications ? (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  Ce site n'a pas encore de valeurs spécifiques définies. Utilisez le bouton "Modifier les spécifications" pour les ajouter.
+              ) : (
+                <Alert severity="info">
+                  Ce site n'a pas de spécifications définies.
                 </Alert>
-              ) : null}
+              )}
             </CardContent>
           </Card>
         </TabPanel>

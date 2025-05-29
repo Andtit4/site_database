@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryColumn, OneToMany, ManyToMany } from 'typeorm';
+
 import { Equipment } from './equipment.entity';
 import { Team } from '../teams/entities/team.entity';
 
@@ -9,17 +10,6 @@ export enum SiteStatus {
   INACTIVE = 'INACTIVE',
   UNDER_CONSTRUCTION = 'UNDER_CONSTRUCTION',
   DELETED = 'DELETED',
-}
-
-// Types possibles de site
-export enum SiteType {
-  TOUR = 'TOUR',
-  SHELTER = 'SHELTER',
-  PYLONE = 'PYLONE',
-  BATIMENT = 'BATIMENT',
-  TOIT = 'TOIT',
-  TERRAIN = 'TERRAIN',
-  AUTRE = 'AUTRE'
 }
 
 @Entity()
@@ -55,23 +45,14 @@ export class Site {
   @Column({ nullable: true })
   newBase: string;
 
-  // Ajout du type de site pour les spécifications dynamiques
-  @Column({
-    type: 'varchar',
-    length: 50,
-    nullable: true
-  })
-  type: string;
-
-  // Spécifications dynamiques stockées en JSON
-  @Column('json', { nullable: true })
-  specifications: Record<string, any>;
-
   @OneToMany(() => Equipment, equipment => equipment.site)
   equipment: Equipment[];
 
   @ManyToMany(() => Team, team => team.sites)
   teams: Team[];
+
+  @Column({ type: 'json', nullable: true })
+  specifications: Record<string, any>;
 
   @Column({ default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

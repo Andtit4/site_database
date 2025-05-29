@@ -11,7 +11,14 @@ async function bootstrap() {
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
         transform: true,
-        forbidNonWhitelisted: true,
+        forbidNonWhitelisted: false,
+        transformOptions: {
+            enableImplicitConversion: true,
+        },
+        exceptionFactory: (errors) => {
+            console.log('Erreurs de validation:', JSON.stringify(errors, null, 2));
+            return new Error('Validation failed: ' + JSON.stringify(errors));
+        }
     }));
     app.enableCors({
         origin: ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:8082', 'http://localhost:5001', 'http://185.97.146.99:5000', 'http://185.97.146.99:5001', 'https://site-info-xi.vercel.app'],

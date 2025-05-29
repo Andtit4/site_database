@@ -129,8 +129,10 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
           label="Spécifications" 
           icon={<i className='tabler-list-details' />}
         >
-          <MenuItem href={`/${locale}/specifications`}>Liste des spécifications</MenuItem>
-          <MenuItem href={`/${locale}/specifications`} onClick={() => window.dispatchEvent(new CustomEvent('openAddSpecificationDialog'))}>Ajouter une spécification</MenuItem>
+          <MenuItem href={`/${locale}/specifications`}>Spécifications d'équipements</MenuItem>
+          <MenuItem href={`/${locale}/specifications`} onClick={() => window.dispatchEvent(new CustomEvent('openAddSpecificationDialog'))}>Ajouter une spécification d'équipement</MenuItem>
+          <MenuItem href={`/${locale}/site-specifications`}>Spécifications de sites</MenuItem>
+          <MenuItem href={`/${locale}/site-specifications`} onClick={() => window.dispatchEvent(new CustomEvent('openAddSiteSpecificationDialog'))}>Ajouter une spécification de site</MenuItem>
         </SubMenu>
       </Menu>
       {/* <Menu

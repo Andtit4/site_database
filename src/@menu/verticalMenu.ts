@@ -28,6 +28,20 @@ const navigation = (): NavItemsType => {
       title: 'Départements',
       icon: 'ri-building-line',
       path: '/departments'
+    },
+    {
+      title: 'Spécifications',
+      icon: 'ri-settings-line',
+      children: [
+        {
+          title: 'Spécifications d\'équipements',
+          path: '/specifications'
+        },
+        {
+          title: 'Spécifications de sites',
+          path: '/site-specifications'
+        }
+      ]
     }
   ]
 }
