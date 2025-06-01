@@ -53,6 +53,9 @@ let SitesController = class SitesController {
     async getSiteTeams(id) {
         return this.sitesService.getSiteTeams(id);
     }
+    async getSiteEquipment(id) {
+        return this.sitesService.getSiteEquipment(id);
+    }
     async getSiteSpecifications(id) {
         return this.sitesService.getSiteSpecifications(id);
     }
@@ -210,6 +213,19 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SitesController.prototype, "getSiteTeams", null);
+__decorate([
+    (0, swagger_1.ApiOperation)({ summary: 'Obtenir les équipements d\'un site', description: 'Récupère la liste des équipements associés à un site' }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'Identifiant du site', example: 'SITE001' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Liste des équipements du site récupérée avec succès' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Site non trouvé' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Non autorisé' }),
+    (0, common_1.Get)(':id/equipment'),
+    (0, common_1.UseGuards)(department_admin_guard_1.DepartmentAdminGuard),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SitesController.prototype, "getSiteEquipment", null);
 __decorate([
     (0, common_1.Get)(':id/specifications'),
     (0, roles_decorator_1.Roles)('admin', 'user'),

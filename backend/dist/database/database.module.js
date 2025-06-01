@@ -8,27 +8,15 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DatabaseModule = void 0;
 const common_1 = require("@nestjs/common");
-const typeorm_1 = require("@nestjs/typeorm");
-const config_1 = require("@nestjs/config");
-const typeorm_config_1 = require("../config/typeorm.config");
+const database_service_1 = require("./database.service");
 let DatabaseModule = class DatabaseModule {
 };
 exports.DatabaseModule = DatabaseModule;
 exports.DatabaseModule = DatabaseModule = __decorate([
+    (0, common_1.Global)(),
     (0, common_1.Module)({
-        imports: [
-            typeorm_1.TypeOrmModule.forRootAsync({
-                imports: [config_1.ConfigModule],
-                inject: [config_1.ConfigService],
-                useFactory: (configService) => ({
-                    ...(0, typeorm_config_1.typeOrmConfig)(configService),
-                    autoLoadEntities: true,
-                    keepConnectionAlive: true,
-                    retryAttempts: 10,
-                    retryDelay: 3000,
-                }),
-            }),
-        ],
+        providers: [database_service_1.DatabaseService],
+        exports: [database_service_1.DatabaseService],
     })
 ], DatabaseModule);
 //# sourceMappingURL=database.module.js.map

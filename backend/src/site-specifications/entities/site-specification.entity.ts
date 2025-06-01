@@ -20,10 +20,9 @@ export class SiteSpecification {
       'SHELTER',
       'PYLONE',
       'BATIMENT',
-      'TOIT_BATIMENT',
-      'ROOFTOP',
-      'TERRAIN_BAILLE',
-      'TERRAIN_PROPRIETAIRE',
+      'TOITURE',
+      'BAIL',
+      'PROPRIETE',
       'AUTRE'
     ],
     nullable: false

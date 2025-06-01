@@ -1,21 +1,9 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { typeOrmConfig } from '../config/typeorm.config';
+import { Global, Module } from '@nestjs/common';
+import { DatabaseService } from './database.service';
 
+@Global()
 @Module({
-  imports: [
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        ...typeOrmConfig(configService),
-        autoLoadEntities: true,
-        keepConnectionAlive: true,
-        retryAttempts: 10,
-        retryDelay: 3000,
-      }),
-    }),
-  ],
+  providers: [DatabaseService],
+  exports: [DatabaseService],
 })
 export class DatabaseModule {} 

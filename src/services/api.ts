@@ -34,19 +34,6 @@ api.interceptors.response.use(
   async (error) => {
     console.error('API Error:', error.response?.status, error.message);
     
-    // Afficher plus de détails sur l'erreur, y compris le corps de la réponse
-    if (error.response) {
-      console.error('Détails de l\'erreur:', {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data,
-        headers: error.response.headers,
-        url: error.config.url,
-        method: error.config.method,
-        requestData: error.config.data
-      });
-    }
-    
     if (error.response?.status === 401) {
       console.error('API: Erreur 401 - Token invalide ou expiré');
 

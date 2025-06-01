@@ -24,8 +24,15 @@ export class SiteSpecificationsController {
   @Roles('admin', 'user')
   @ApiOperation({ summary: 'Récupérer toutes les spécifications de sites' })
   @ApiResponse({ status: 200, description: 'Liste des spécifications de sites' })
-  findAll() {
-    return this.siteSpecificationsService.findAll();
+  async findAll() {
+    try {
+      const result = await this.siteSpecificationsService.findAll();
+
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des spécifications:', error);
+      throw error;
+    }
   }
 
   @Get('type/:siteType')
@@ -51,15 +58,15 @@ export class SiteSpecificationsController {
   @ApiOperation({ summary: 'Créer une nouvelle spécification de site' })
   @ApiResponse({ status: 201, description: 'Spécification créée avec succès' })
   @ApiResponse({ status: 400, description: 'Données invalides' })
-  create(@Req() req) {
+  async create(@Req() req) {
     // Récupérer les données brutes du corps de la requête
     const rawData = req.body;
-
-    console.log('Données brutes reçues:', rawData);
     
     // Vérifier manuellement les données
     if (!rawData || !rawData.siteType || !rawData.columns) {
-      throw new Error('Les propriétés siteType et columns sont requises');
+      const error = 'Les propriétés siteType et columns sont requises';
+
+      throw new Error(error);
     }
     
     // Construire manuellement un objet DTO
@@ -68,7 +75,14 @@ export class SiteSpecificationsController {
       columns: rawData.columns
     };
     
-    return this.siteSpecificationsService.create(dto);
+    try {
+      const result = await this.siteSpecificationsService.create(dto);
+
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la création de la spécification:', error);
+      throw error;
+    }
   }
 
   @Put(':id')
@@ -95,5 +109,12 @@ export class SiteSpecificationsController {
   @ApiResponse({ status: 200, description: 'Structure de la table' })
   async checkTable() {
     return this.siteSpecificationsService.checkTableStructure();
+  }
+
+  @Get('debug/raw-data')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Debug: Examiner les données brutes de la base' })
+  async debugRawData() {
+    return this.siteSpecificationsService.debugRawData();
   }
 } 

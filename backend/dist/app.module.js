@@ -10,8 +10,8 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const config_1 = require("@nestjs/config");
-const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
+const health_controller_1 = require("./health/health.controller");
 const sites_module_1 = require("./sites/sites.module");
 const equipment_module_1 = require("./equipment/equipment.module");
 const teams_module_1 = require("./teams/teams.module");
@@ -22,6 +22,7 @@ const users_module_1 = require("./users/users.module");
 const typeorm_config_1 = require("./config/typeorm.config");
 const site_specifications_module_1 = require("./site-specifications/site-specifications.module");
 const table_manager_module_1 = require("./table-manager/table-manager.module");
+const notifications_module_1 = require("./notifications/notifications.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -34,7 +35,13 @@ exports.AppModule = AppModule = __decorate([
             typeorm_1.TypeOrmModule.forRootAsync({
                 imports: [config_1.ConfigModule],
                 inject: [config_1.ConfigService],
-                useFactory: (configService) => (0, typeorm_config_1.typeOrmConfig)(configService)
+                useFactory: (configService) => ({
+                    ...(0, typeorm_config_1.typeOrmConfig)(configService),
+                    autoLoadEntities: true,
+                    keepConnectionAlive: true,
+                    retryAttempts: 10,
+                    retryDelay: 3000,
+                })
             }),
             sites_module_1.SitesModule,
             equipment_module_1.EquipmentModule,
@@ -44,9 +51,10 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
             site_specifications_module_1.SiteSpecificationsModule,
-            table_manager_module_1.TableManagerModule
+            table_manager_module_1.TableManagerModule,
+            notifications_module_1.NotificationsModule
         ],
-        controllers: [app_controller_1.AppController],
+        controllers: [health_controller_1.HealthController],
         providers: [app_service_1.AppService],
     })
 ], AppModule);

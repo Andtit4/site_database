@@ -1,27 +1,38 @@
-import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger, Inject, Scope, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
-import { Department, DepartmentType } from '../entities/department.entity';
-import { User } from '../entities/user.entity';
-import { CreateDepartmentDto, UpdateDepartmentDto, DepartmentFilterDto } from '../dto/department.dto';
-import { EquipmentType } from '../entities/equipment.entity';
-import { EmailService } from '../services/email.service';
-import { CreateDepartmentUserDto } from '../auth/dto/create-department-user.dto';
-import { UsersService } from '../users/users.service';
-import { v4 as uuidv4 } from 'uuid';
-import { Team } from '../teams/entities/team.entity';
-import { TeamStatus } from '../teams/entities/team.entity';
+import type { Repository } from 'typeorm';
 
-@Injectable()
+import { REQUEST } from '@nestjs/core';
+
+import type { Request } from 'express';
+
+import { Department, DepartmentType } from '../entities/department.entity';
+import type { CreateDepartmentDto, UpdateDepartmentDto, DepartmentFilterDto } from '../dto/department.dto';
+import type { EquipmentType } from '../entities/equipment.entity';
+
+// import { EmailService } from '../services/email.service'; // ⚠️ Temporairement commenté
+import { UsersService } from '../users/users.service';
+import { Team } from '../teams/entities/team.entity';
+
+import type { CreateDepartmentUserDto } from '../auth/dto/create-department-user.dto';
+
+@Injectable({ scope: Scope.REQUEST })
 export class DepartmentsService {
   private readonly logger = new Logger(DepartmentsService.name);
 
   constructor(
     @InjectRepository(Department)
     private departmentsRepository: Repository<Department>,
+    @Inject(forwardRef(() => UsersService))
     private usersService: UsersService,
-    private emailService: EmailService,
+
+    // private emailService: EmailService, // ⚠️ Temporairement commenté pour résoudre les dépendances
+    @Inject(REQUEST) private request: Request,
   ) {}
+
+  private getCurrentUser() {
+    return this.request.user as any;
+  }
 
   async create(createDepartmentDto: CreateDepartmentDto): Promise<Department> {
     try {
@@ -40,6 +51,7 @@ export class DepartmentsService {
       }
 
       const department = this.departmentsRepository.create(createDepartmentDto);
+
       this.logger.log(`Création d'un nouveau département: ${department.name}`);
       
       const savedDepartment = await this.departmentsRepository.save(department);
@@ -83,21 +95,22 @@ export class DepartmentsService {
       };
       
       // Créer l'utilisateur du département
-      const user = await this.usersService.createDepartmentUser(createUserDto);
+      await this.usersService.createDepartmentUser(createUserDto);
       
       // Envoyer un email avec les identifiants
-      await this.emailService.sendCredentialsEmail(
-        department.contactEmail,
-        username,
-        password,
-        createUserDto.firstName,
-        createUserDto.lastName,
-        true
-      );
+      // await this.emailService.sendCredentialsEmail(
+      //   department.contactEmail,
+      //   username,
+      //   password,
+      //   createUserDto.firstName,
+      //   createUserDto.lastName,
+      //   true
+      // );
       
       this.logger.log(`Compte utilisateur créé pour le département: ${department.name}`);
     } catch (error) {
       this.logger.error(`Erreur lors de la création du compte pour le département ${department.id}: ${error.message}`);
+
       // Ne pas bloquer la création du département si la création du compte échoue
     }
   }
@@ -106,17 +119,28 @@ export class DepartmentsService {
     // Générer un mot de passe aléatoire (12 caractères)
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
     let password = '';
+
     for (let i = 0; i < 12; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return password;
+
+    
+return password;
   }
 
   async findAll(filterDto: DepartmentFilterDto = {}): Promise<Department[]> {
     try {
       const { type, isActive, search, managesEquipmentType } = filterDto;
+
       const query = this.departmentsRepository.createQueryBuilder('department')
         .where('department.isDeleted = :isDeleted', { isDeleted: false });
+
+      // Filtrage par utilisateur : les membres d'équipe ne voient que leur département
+      const user = this.getCurrentUser();
+
+      if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+        query.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+      }
 
       if (type) {
         query.andWhere('department.type = :type', { type });
@@ -167,7 +191,8 @@ export class DepartmentsService {
       });
       
       this.logger.log(`Récupération de ${departments.length} départements`);
-      return departments;
+      
+return departments;
     } catch (error) {
       this.logger.error(`Erreur lors de la récupération des départements: ${error.message}`, error.stack);
       throw error;
@@ -192,6 +217,15 @@ export class DepartmentsService {
 
       if (!department) {
         throw new NotFoundException(`Département avec ID "${id}" non trouvé`);
+      }
+
+      // Vérifier si l'utilisateur a accès à ce département
+      const user = this.getCurrentUser();
+
+      if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+        if (department.id !== user.departmentId) {
+          throw new NotFoundException(`Département avec ID "${id}" non trouvé ou accès non autorisé`);
+        }
       }
       
       // Conversion des chaînes managedEquipmentTypes en tableaux
@@ -234,6 +268,7 @@ export class DepartmentsService {
       
       // Exclure les champs de relation de la mise à jour
       const updateData = { ...updateDepartmentDto };
+
       delete updateData['teams']; // Assurez-vous que les relations ne sont pas incluses dans l'objet de mise à jour
       
       // Appliquer les mises à jour
@@ -290,6 +325,7 @@ export class DepartmentsService {
             );
           } catch (err) {
             this.logger.error(`Erreur lors du marquage de l'équipe ${team.id} comme supprimée: ${err.message}`);
+
             // Continuer avec les autres équipes même si une échoue
           }
         }
@@ -311,18 +347,52 @@ export class DepartmentsService {
 
   async getStatistics() {
     try {
-      const totalDepartments = await this.departmentsRepository.count();
-      const activeDepartments = await this.departmentsRepository.count({ where: { isActive: true } });
-      const inactiveDepartments = await this.departmentsRepository.count({ where: { isActive: false } });
+      const user = this.getCurrentUser();
+      let queryBuilder = this.departmentsRepository.createQueryBuilder('department')
+        .where('department.isDeleted = :isDeleted', { isDeleted: false });
+
+      // Filtrer par département pour les utilisateurs non-admin
+      if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+        queryBuilder = queryBuilder.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+      }
+
+      const totalDepartments = await queryBuilder.getCount();
+      
+      // Réinitialiser pour compter les actifs
+      queryBuilder = this.departmentsRepository.createQueryBuilder('department')
+        .where('department.isDeleted = :isDeleted', { isDeleted: false })
+        .andWhere('department.isActive = :isActive', { isActive: true });
+      
+      if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+        queryBuilder = queryBuilder.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+      }
+      
+      const activeDepartments = await queryBuilder.getCount();
+      
+      // Réinitialiser pour compter les inactifs
+      queryBuilder = this.departmentsRepository.createQueryBuilder('department')
+        .where('department.isDeleted = :isDeleted', { isDeleted: false })
+        .andWhere('department.isActive = :isActive', { isActive: false });
+      
+      if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+        queryBuilder = queryBuilder.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+      }
+      
+      const inactiveDepartments = await queryBuilder.getCount();
       
       // Compter par type
       const departmentsByType = {};
-      for (const type of Object.values(EquipmentType)) {
-        departmentsByType[type] = await this.departmentsRepository.count({
-          where: {
-            type: type as any
-          }
-        });
+
+      for (const type of Object.values(DepartmentType)) {
+        let typeQueryBuilder = this.departmentsRepository.createQueryBuilder('department')
+          .where('department.isDeleted = :isDeleted', { isDeleted: false })
+          .andWhere('department.type = :type', { type });
+        
+        if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+          typeQueryBuilder = typeQueryBuilder.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+        }
+        
+        departmentsByType[type] = await typeQueryBuilder.getCount();
       }
       
       return {

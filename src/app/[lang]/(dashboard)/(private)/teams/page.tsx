@@ -26,14 +26,28 @@ import {
   Grid,
   Chip,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  CircularProgress,
+  Alert
 } from '@mui/material'
 import { teamsService, departmentsService, sitesService } from '@/services'
 import { Team, TeamStatus, CreateTeamDto, UpdateTeamDto, TeamFilterDto } from '@/services/teamsService'
 import { EquipmentTypes } from '@/services/equipmentService'
 import notificationService from '@/services/notificationService'
+import { useAuth } from '@/hooks/useAuth'
+import { useRouter, useParams } from 'next/navigation'
 
 const TeamsPage = () => {
+  const { 
+    user, 
+    loading: authLoading, 
+    canViewAllResources, 
+    canCreate, 
+    canEdit, 
+    canDelete,
+    getUserDepartmentId 
+  } = useAuth()
+  
   const [teams, setTeams] = useState<Team[]>([])
   const [departments, setDepartments] = useState<any[]>([])
   const [sites, setSites] = useState<any[]>([])
@@ -58,11 +72,34 @@ const TeamsPage = () => {
     hasDepartmentRights: false
   })
 
+  const router = useRouter()
+  const params = useParams()
+  const lang = params.lang || 'fr'
+
   const fetchData = async () => {
     try {
       setLoading(true)
+      
+      // Préparer les filtres selon les permissions de l'utilisateur
+      const teamFilterDto: TeamFilterDto = { ...filterData }
+      
+      // Si l'utilisateur ne peut pas voir toutes les ressources, filtrer par département
+      if (!canViewAllResources()) {
+        const userDepartmentId = getUserDepartmentId()
+        if (userDepartmentId) {
+          teamFilterDto.departmentId = userDepartmentId
+        } else {
+          // Si l'utilisateur n'a pas de département, ne charger aucune équipe
+          setTeams([])
+          setDepartments([])
+          setSites([])
+          setLoading(false)
+          return
+        }
+      }
+      
       const [teamsData, departmentsData, sitesData] = await Promise.all([
-        teamsService.getAllTeams(filterData),
+        teamsService.getAllTeams(teamFilterDto),
         departmentsService.getAllDepartments(),
         sitesService.getAllSites()
       ])
@@ -78,11 +115,17 @@ const TeamsPage = () => {
   }
 
   useEffect(() => {
-    fetchData()
-    
+    if (!authLoading && user) {
+      fetchData()
+    }
+  }, [filterData, authLoading, user])
+  
+  useEffect(() => {
     // Ajouter un écouteur d'événement pour ouvrir le dialogue d'ajout depuis le menu
     const handleOpenAddDialog = () => {
-      handleOpenDialog();
+      if (canCreate('team')) {
+        handleOpenDialog();
+      }
     };
     
     window.addEventListener('openAddTeamDialog', handleOpenAddDialog);
@@ -91,9 +134,31 @@ const TeamsPage = () => {
     return () => {
       window.removeEventListener('openAddTeamDialog', handleOpenAddDialog);
     };
-  }, [filterData])
+  }, [canCreate])
+
+  // Mettre à jour le département par défaut dans le formulaire
+  useEffect(() => {
+    const userDepartmentId = getUserDepartmentId()
+    if (userDepartmentId && !canViewAllResources()) {
+      setFormData(prev => ({
+        ...prev,
+        departmentId: userDepartmentId
+      }))
+    }
+  }, [user, getUserDepartmentId, canViewAllResources])
 
   const handleOpenDialog = (team?: Team) => {
+    // Vérifier les permissions
+    if (team && !canEdit('team')) {
+      setError('Vous n\'avez pas l\'autorisation de modifier cette équipe.')
+      return
+    }
+    
+    if (!team && !canCreate('team')) {
+      setError('Vous n\'avez pas l\'autorisation de créer une équipe.')
+      return
+    }
+
     if (team) {
       setCurrentTeam(team)
       setFormData({
@@ -115,6 +180,7 @@ const TeamsPage = () => {
       })
     } else {
       setCurrentTeam(null)
+      const userDepartmentId = getUserDepartmentId()
       setFormData({
         name: '',
         description: '',
@@ -125,7 +191,7 @@ const TeamsPage = () => {
         location: '',
         equipmentType: '',
         equipmentTypes: [],
-        departmentId: departments.length > 0 ? departments[0].id : '',
+        departmentId: canViewAllResources() ? (departments.length > 0 ? departments[0].id : '') : (userDepartmentId || ''),
         createAccount: false,
         userEmail: '',
         hasDepartmentRights: false
@@ -225,6 +291,12 @@ const TeamsPage = () => {
   }
 
   const handleDelete = async (id: string) => {
+    // Vérifier les permissions avant de permettre la suppression
+    if (!canDelete('team')) {
+      setError('Vous n\'avez pas l\'autorisation de supprimer cette équipe.')
+      return
+    }
+    
     if (confirm('Êtes-vous sûr de vouloir supprimer cette équipe?')) {
       try {
         // Récupérer les informations de l'équipe avant suppression
@@ -282,21 +354,46 @@ const TeamsPage = () => {
     }
   }
 
+  // Afficher le loader pendant l'authentification
+  if (authLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  // Rediriger si l'utilisateur n'est pas authentifié
+  if (!user) {
+    router.push(`/${lang}/login`)
+    return null
+  }
+
   if (loading) {
-    return <Typography>Chargement des équipes...</Typography>
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress />
+      </Box>
+    )
   }
 
   if (error) {
-    return <Typography color="error">{error}</Typography>
+    return (
+      <Box sx={{ p: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    )
   }
 
   return (
     <Box sx={{ p: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4">Gestion des Équipes</Typography>
-        <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
-          Ajouter une équipe
-        </Button>
+        {canCreate('team') && (
+          <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
+            Ajouter une équipe
+          </Button>
+        )}
       </Box>
 
       <Card sx={{ mb: 4 }}>
@@ -318,23 +415,25 @@ const TeamsPage = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Département</InputLabel>
-                <Select
-                  value={filterData.departmentId || ''}
-                  label="Département"
-                  onChange={(e) => setFilterData({ ...filterData, departmentId: e.target.value as string || undefined })}
-                >
-                  <MenuItem value="">Tous les départements</MenuItem>
-                  {departments.map(dept => (
-                    <MenuItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+            {canViewAllResources() && (
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Département</InputLabel>
+                  <Select
+                    value={filterData.departmentId || ''}
+                    label="Département"
+                    onChange={(e) => setFilterData({ ...filterData, departmentId: e.target.value as string || undefined })}
+                  >
+                    <MenuItem value="">Tous les départements</MenuItem>
+                    {departments.map(dept => (
+                      <MenuItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel>Type d'équipement</InputLabel>
@@ -410,12 +509,24 @@ const TeamsPage = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button size="small" onClick={() => handleOpenDialog(team)}>
-                        Modifier
-                      </Button>
-                      <Button size="small" color="error" onClick={() => handleDelete(team.id)}>
-                        Supprimer
-                      </Button>
+                      {canEdit('team') && (
+                        <Button 
+                          size="small" 
+                          onClick={() => handleOpenDialog(team)}
+                          sx={{ mr: 1 }}
+                        >
+                          Modifier
+                        </Button>
+                      )}
+                      {canDelete('team') && (
+                        <Button 
+                          size="small" 
+                          color="error" 
+                          onClick={() => handleDelete(team.id)}
+                        >
+                          Supprimer
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

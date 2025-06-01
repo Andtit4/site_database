@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In } from 'typeorm';
 import { Site, SiteStatus } from '../entities/site.entity';
+import { Equipment } from '../entities/equipment.entity';
 import { CreateSiteDto, UpdateSiteDto, SiteFilterDto } from '../dto/site.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Team } from '../teams/entities/team.entity';
@@ -13,6 +14,8 @@ export class SitesService {
     private sitesRepository: Repository<Site>,
     @InjectRepository(Team)
     private teamsRepository: Repository<Team>,
+    @InjectRepository(Equipment)
+    private equipmentRepository: Repository<Equipment>,
   ) {}
 
   async findAll(filterDto: SiteFilterDto = {}): Promise<Site[]> {
@@ -187,5 +190,18 @@ export class SitesService {
     await this.sitesRepository.save(site);
     
     return site;
+  }
+
+  async getSiteEquipment(id: string): Promise<Equipment[]> {
+    const site = await this.sitesRepository.findOne({
+      where: { id },
+      relations: ['equipment']
+    });
+    
+    if (!site) {
+      throw new NotFoundException(`Site avec ID ${id} non trouve`);
+    }
+
+    return site.equipment || [];
   }
 } 

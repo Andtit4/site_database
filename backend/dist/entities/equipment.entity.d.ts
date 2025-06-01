@@ -20,6 +20,7 @@ export declare enum EquipmentStatus {
 export declare class Equipment {
     id: string;
     name: string;
+    type: EquipmentType;
     description: string;
     model: string;
     serialNumber: string;
@@ -34,6 +35,7 @@ export declare class Equipment {
     ipAddress: string;
     macAddress: string;
     isDeleted: boolean;
+    specifications: Record<string, any>;
     site: Site;
     siteId: string;
     department: Department;

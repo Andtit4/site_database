@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
+import type { SelectChangeEvent } from '@mui/material/Select'
+
 import { 
   Box, 
   Button, 
@@ -26,7 +28,8 @@ import {
   MenuItem,
   Grid,
   Chip,
-  IconButton
+  IconButton,
+  Tooltip
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -49,10 +52,9 @@ const formatSiteType = (type: string): string => {
     'SHELTER': 'Shelter',
     'PYLONE': 'Pylône',
     'BATIMENT': 'Bâtiment',
-    'TOIT_BATIMENT': 'Toit de bâtiment',
-    'ROOFTOP': 'Rooftop',
-    'TERRAIN_BAILLE': 'Terrain baillé',
-    'TERRAIN_PROPRIETAIRE': 'Terrain propriétaire',
+    'TOITURE': 'Toiture',
+    'BAIL': 'Terrain en bail',
+    'PROPRIETE': 'Propriété',
     'AUTRE': 'Autre'
   };
   
@@ -147,6 +149,11 @@ const SiteSpecificationsPage = () => {
 
   const handleCloseDialog = () => {
     setOpenDialog(false)
+    setCurrentSpecification(null)
+    setFormData({
+      siteType: SiteTypes.TOUR,
+      columns: []
+    })
     setTempColumn({
       name: '',
       type: ColumnTypes.VARCHAR,
@@ -156,35 +163,49 @@ const SiteSpecificationsPage = () => {
     })
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
-    const { name, value } = e.target
+  const handleSiteTypeChange = (event: SelectChangeEvent<string>) => {
+    const { value } = event.target
     
-    if (name === 'siteType') {
-      setFormData({
-        ...formData,
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
         siteType: value as string
-      })
+      }
+
+      
+return newFormData
+    })
+  }
+
+  const handleColumnInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target
+    
+    if (name === 'length' && value) {
+      setTempColumn(prev => ({
+        ...prev,
+        length: parseInt(value as string, 10)
+      }))
+    } else {
+      setTempColumn(prev => ({
+        ...prev,
+        [name as string]: value
+      }))
     }
   }
 
-  const handleColumnInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
-    const { name, value } = e.target
+  const handleColumnSelectChange = (event: SelectChangeEvent<string>) => {
+    const { name, value } = event.target
     
     if (name === 'nullable') {
-      setTempColumn({
-        ...tempColumn,
+      setTempColumn(prev => ({
+        ...prev,
         nullable: value === 'true'
-      })
-    } else if (name === 'length' && value) {
-      setTempColumn({
-        ...tempColumn,
-        length: parseInt(value as string, 10)
-      })
-    } else {
-      setTempColumn({
-        ...tempColumn,
-        [name as string]: value
-      })
+      }))
+    } else if (name === 'type') {
+      setTempColumn(prev => ({
+        ...prev,
+        type: value as string
+      }))
     }
   }
 
@@ -192,17 +213,26 @@ const SiteSpecificationsPage = () => {
     if (!tempColumn.name || !tempColumn.type) {
       alert('Le nom et le type de colonne sont requis')
       
-return
+      return
+    }
+    
+    // Vérifier si une colonne avec le même nom existe déjà
+    const existingColumn = formData.columns.find(col => col.name.toLowerCase() === tempColumn.name.toLowerCase())
+    
+    if (existingColumn) {
+      alert('Une colonne avec ce nom existe déjà')
+      
+      return
     }
     
     const newColumn: SiteColumnDefinition = {
       ...tempColumn
     }
     
-    setFormData({
-      ...formData,
-      columns: [...formData.columns, newColumn]
-    })
+    setFormData(prev => ({
+      ...prev,
+      columns: [...prev.columns, newColumn]
+    }))
     
     // Réinitialiser le formulaire de colonne temporaire
     setTempColumn({
@@ -215,13 +245,10 @@ return
   }
 
   const handleRemoveColumn = (index: number) => {
-    const updatedColumns = [...formData.columns]
-
-    updatedColumns.splice(index, 1)
-    setFormData({
-      ...formData,
-      columns: updatedColumns
-    })
+    setFormData(prev => ({
+      ...prev,
+      columns: prev.columns.filter((_, i) => i !== index)
+    }))
   }
 
   const handleSubmit = async () => {
@@ -229,27 +256,44 @@ return
       if (!formData.siteType) {
         alert('Le type de site est requis')
         
-return
+        return
       }
       
       if (formData.columns.length === 0) {
         alert('Vous devez ajouter au moins une colonne')
         
-return
+        return
+      }
+      
+      // Validation des colonnes
+      for (const column of formData.columns) {
+        if (!column.name || !column.type) {
+          alert('Toutes les colonnes doivent avoir un nom et un type')
+          
+          return
+        }
       }
       
       if (currentSpecification) {
         // Mise à jour de la spécification
-        const updateData: UpdateSiteSpecificationDto = { ...formData }
-
+        const updateData: UpdateSiteSpecificationDto = {
+          siteType: formData.siteType,
+          columns: formData.columns
+        }
+        
         await siteSpecificationsService.updateSiteSpecification(currentSpecification.id, updateData)
       } else {
         // Création d'une nouvelle spécification
-        await siteSpecificationsService.createSiteSpecification(formData)
+        const createData: CreateSiteSpecificationDto = {
+          siteType: formData.siteType,
+          columns: formData.columns
+        }
+        
+        await siteSpecificationsService.createSiteSpecification(createData)
       }
       
       handleCloseDialog()
-      fetchSpecifications() // Recharger la liste
+      await fetchSpecifications() // Recharger la liste
       setError(null)
     } catch (err: any) {
       console.error('Erreur lors de l\'enregistrement de la spécification de site:', err)
@@ -357,7 +401,7 @@ return
                   name="siteType"
                   value={formData.siteType}
                   label="Type de Site"
-                  onChange={handleInputChange}
+                  onChange={handleSiteTypeChange}
                   disabled={!!currentSpecification} // Désactiver si en mode édition
                 >
                   {Object.values(SiteTypes).map((type) => (
@@ -373,27 +417,61 @@ return
               <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                 Colonnes de la Table
               </Typography>
-              <TableContainer component={Paper}>
-                <Table size="small">
+              <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
+                <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Nom</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Longueur</TableCell>
-                      <TableCell>Nullable</TableCell>
-                      <TableCell>Valeur par Défaut</TableCell>
-                      <TableCell>Action</TableCell>
+                      <TableCell sx={{ minWidth: 120, fontWeight: 'bold' }}>Nom</TableCell>
+                      <TableCell sx={{ minWidth: 80, fontWeight: 'bold' }}>Type</TableCell>
+                      <TableCell sx={{ minWidth: 80, fontWeight: 'bold' }}>Longueur</TableCell>
+                      <TableCell sx={{ minWidth: 80, fontWeight: 'bold' }}>Nullable</TableCell>
+                      <TableCell sx={{ minWidth: 120, fontWeight: 'bold' }}>Valeur par Défaut</TableCell>
+                      <TableCell sx={{ minWidth: 80, fontWeight: 'bold' }}>Action</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {formData.columns.map((column, index) => (
                       <TableRow key={index}>
-                        <TableCell>{column.name}</TableCell>
-                        <TableCell>{column.type}</TableCell>
-                        <TableCell>{column.length || '-'}</TableCell>
-                        <TableCell>{column.nullable ? 'Oui' : 'Non'}</TableCell>
-                        <TableCell>{column.defaultValue || '-'}</TableCell>
-                        <TableCell>
+                        <TableCell sx={{ 
+                          maxWidth: 150, 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          <Tooltip title={column.name}>
+                            <span>{column.name}</span>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell sx={{ minWidth: 80 }}>
+                          <Chip 
+                            label={column.type} 
+                            size="small" 
+                            color="secondary"
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          {column.length || '-'}
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Chip 
+                            label={column.nullable ? 'Oui' : 'Non'} 
+                            size="small"
+                            color={column.nullable ? 'warning' : 'success'}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell sx={{ 
+                          maxWidth: 120, 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          <Tooltip title={column.defaultValue || 'Aucune valeur par défaut'}>
+                            <span>{column.defaultValue || '-'}</span>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'center' }}>
                           <IconButton 
                             size="small" 
                             color="error"
@@ -404,6 +482,13 @@ return
                         </TableCell>
                       </TableRow>
                     ))}
+                    {formData.columns.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center" sx={{ py: 2, fontStyle: 'italic', color: 'text.secondary' }}>
+                          Aucune colonne définie. Ajoutez une colonne ci-dessous.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -433,7 +518,7 @@ return
                   name="type"
                   value={tempColumn.type}
                   label="Type"
-                  onChange={handleColumnInputChange}
+                  onChange={handleColumnSelectChange}
                 >
                   {Object.values(ColumnTypes).map((type) => (
                     <MenuItem key={type} value={type}>{type}</MenuItem>
@@ -461,7 +546,7 @@ return
                   name="nullable"
                   value={tempColumn.nullable ? 'true' : 'false'}
                   label="Nullable"
-                  onChange={handleColumnInputChange}
+                  onChange={handleColumnSelectChange}
                 >
                   <MenuItem value="true">Oui</MenuItem>
                   <MenuItem value="false">Non</MenuItem>

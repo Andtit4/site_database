@@ -17,11 +17,13 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const site_entity_1 = require("../entities/site.entity");
+const equipment_entity_1 = require("../entities/equipment.entity");
 const team_entity_1 = require("../teams/entities/team.entity");
 let SitesService = class SitesService {
-    constructor(sitesRepository, teamsRepository) {
+    constructor(sitesRepository, teamsRepository, equipmentRepository) {
         this.sitesRepository = sitesRepository;
         this.teamsRepository = teamsRepository;
+        this.equipmentRepository = equipmentRepository;
     }
     async findAll(filterDto = {}) {
         const { search, region, status, includeDeleted } = filterDto;
@@ -140,13 +142,25 @@ let SitesService = class SitesService {
         await this.sitesRepository.save(site);
         return site;
     }
+    async getSiteEquipment(id) {
+        const site = await this.sitesRepository.findOne({
+            where: { id },
+            relations: ['equipment']
+        });
+        if (!site) {
+            throw new common_1.NotFoundException(`Site avec ID ${id} non trouve`);
+        }
+        return site.equipment || [];
+    }
 };
 exports.SitesService = SitesService;
 exports.SitesService = SitesService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(site_entity_1.Site)),
     __param(1, (0, typeorm_1.InjectRepository)(team_entity_1.Team)),
+    __param(2, (0, typeorm_1.InjectRepository)(equipment_entity_1.Equipment)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository])
 ], SitesService);
 //# sourceMappingURL=sites.service.js.map

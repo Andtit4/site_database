@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { 
   Box, 
   Button, 
@@ -48,6 +49,7 @@ import { EquipmentTypes } from '@/services/specificationsService'
 import { Specification } from '@/services/specificationsService'
 
 const EquipmentPage = () => {
+  const searchParams = useSearchParams()
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [sites, setSites] = useState<any[]>([])
   const [departments, setDepartments] = useState<any[]>([])
@@ -104,6 +106,35 @@ const EquipmentPage = () => {
       window.removeEventListener('openAddEquipmentDialog', handleOpenAddDialog);
     };
   }, [filterValues])
+
+  // Gérer les paramètres d'URL pour créer un équipement avec un ID spécifique
+  useEffect(() => {
+    const shouldCreate = searchParams.get('create')
+    const idFromUrl = searchParams.get('id')
+    
+    if (shouldCreate === 'true' && idFromUrl && sites.length > 0) {
+      setCurrentEquipment(null)
+      const defaultSiteId = sites.length > 0 ? sites[0].id : '';
+      setFormData({
+        id: idFromUrl, // Utiliser l'ID de l'URL
+        type: EquipmentTypes.ANTENNE,
+        model: 'Équipement de test',
+        manufacturer: 'Test Manufacturer',
+        serialNumber: 'TEST-001',
+        installDate: new Date().toISOString().split('T')[0],
+        status: EquipmentStatus.ACTIVE,
+        siteId: defaultSiteId,
+        specifications: {}
+      })
+      setOpenDialog(true)
+      
+      // Nettoyer les paramètres d'URL après ouverture du dialogue
+      const url = new URL(window.location.href)
+      url.searchParams.delete('create')
+      url.searchParams.delete('id')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams, sites])
 
   // Trouver la spécification correspondant au type d'équipement sélectionné
   useEffect(() => {

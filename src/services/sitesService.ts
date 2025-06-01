@@ -1,4 +1,5 @@
 import api from './api';
+import authService from './authService';
 
 // Statuts possibles d'un site
 export enum SiteStatus {
@@ -31,6 +32,7 @@ export interface Site {
   newBase?: string;
   type?: string; // Type de site pour les spécifications dynamiques
   specifications?: Record<string, any>; // Spécifications dynamiques
+  departmentId?: string; // Ajout du département
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,11 +43,12 @@ export interface CreateSiteDto {
   region: string;
   longitude: number;
   latitude: number;
-  status?: string;
+  status: SiteStatus;
   oldBase?: string;
   newBase?: string;
   type?: string; // Type de site pour les spécifications dynamiques
   specifications?: Record<string, any>; // Spécifications dynamiques
+  departmentId?: string; // Ajout du département
 }
 
 export interface UpdateSiteDto {
@@ -54,170 +57,209 @@ export interface UpdateSiteDto {
   zone?: string;
   longitude?: number;
   latitude?: number;
-  status?: string;
+  status?: SiteStatus;
   oldBase?: string;
   newBase?: string;
   type?: string; // Type de site pour les spécifications dynamiques
   specifications?: Record<string, any>; // Spécifications dynamiques
+  departmentId?: string; // Ajout du département
 }
 
-class ApiError extends Error {
-  status: number;
-  
-  constructor(message: string, status: number) {
-    super(message);
-    this.status = status;
-    this.name = 'ApiError';
-  }
+export interface SiteFilterDto {
+  departmentId?: string;
+  region?: string;
+  status?: string;
+  type?: string;
+  search?: string;
+  showDeleted?: boolean;
 }
 
-const sitesService = {
-  getAllSites: async (showDeleted: boolean = false): Promise<Site[]> => {
-    try {
-      const params = showDeleted ? { includeDeleted: true } : {};
-      const response = await api.get('/sites', { params });
-      return response.data;
-    } catch (error: any) {
-      console.error('Erreur lors de la récupération des sites:', error);
-      throw new ApiError(
-        'Impossible de récupérer la liste des sites. Veuillez réessayer plus tard.',
-        error.response?.status || 500
-      );
-    }
-  },
-
-  getSiteById: async (id: string): Promise<Site> => {
-    try {
-      const response = await api.get(`/sites/${id}`);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
-      }
-      console.error(`Erreur lors de la récupération du site ${id}:`, error);
-      throw new ApiError(
-        `Impossible de récupérer les informations du site ${id}.`,
-        error.response?.status || 500
-      );
-    }
-  },
-
-  createSite: async (site: CreateSiteDto): Promise<Site> => {
-    try {
-      const response = await api.post('/sites', site);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 409) {
-        throw new ApiError(`Un site avec l'ID ${site.id} existe déjà.`, 409);
-      }
-      console.error('Erreur lors de la création du site:', error);
-      throw new ApiError(
-        'Impossible de créer le site. Veuillez vérifier les informations saisies.',
-        error.response?.status || 500
-      );
-    }
-  },
-
-  updateSite: async (id: string, site: UpdateSiteDto): Promise<Site> => {
-    try {
-      // Ne pas vérifier d'abord si le site existe, car cela entraîne une double requête
-      // Effectuer directement la mise à jour avec PATCH (mise à jour partielle)
-      const response = await api.patch(`/sites/${id}`, site);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
-      }
-      console.error(`Erreur lors de la mise à jour du site ${id}:`, error);
-      throw new ApiError(
-        `Impossible de mettre à jour le site ${id}.`,
-        error.response?.status || 500
-      );
-    }
-  },
-
-  deleteSite: async (id: string): Promise<void> => {
-    try {
-      // Ne pas vérifier d'abord si le site existe, car cela entraîne une double requête
-      // Effectuer directement la suppression
-      await api.delete(`/sites/${id}`);
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
-      }
-      console.error(`Erreur lors de la suppression du site ${id}:`, error);
-      throw new ApiError(
-        `Impossible de supprimer le site ${id}.`,
-        error.response?.status || 500
-      );
-    }
-  },
-
-  getSiteEquipment: async (id: string): Promise<any[]> => {
-    try {
-      const response = await api.get(`/sites/${id}/equipment`);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
-      }
-      console.error(`Erreur lors de la récupération des équipements du site ${id}:`, error);
-      throw new ApiError(
-        `Impossible de récupérer les équipements du site ${id}.`,
-        error.response?.status || 500
-      );
-    }
-  },
-
-  getSiteTeams: async (id: string): Promise<any[]> => {
-    try {
-      const response = await api.get(`/sites/${id}/teams`);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
-      }
-      console.error(`Erreur lors de la récupération des équipes du site ${id}:`, error);
-      throw new ApiError(
-        `Impossible de récupérer les équipes du site ${id}.`,
-        error.response?.status || 500
-      );
-    }
-  },
-
-  // Méthode pour obtenir les spécifications d'un site
-  getSiteSpecifications: async (id: string): Promise<Record<string, any>> => {
-    try {
-      const response = await api.get(`/sites/${id}/specifications`);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
-      }
-      console.error(`Erreur lors de la récupération des spécifications du site ${id}:`, error);
-      throw new ApiError(
-        `Impossible de récupérer les spécifications du site ${id}.`,
-        error.response?.status || 500
-      );
-    }
-  },
-
-  // Méthode pour mettre à jour les spécifications d'un site
-  updateSiteSpecifications: async (id: string, specifications: Record<string, any>): Promise<Record<string, any>> => {
-    try {
-      const response = await api.patch(`/sites/${id}/specifications`, specifications);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        throw new ApiError(`Le site avec l'ID ${id} n'existe pas.`, 404);
-      }
-      console.error(`Erreur lors de la mise à jour des spécifications du site ${id}:`, error);
-      throw new ApiError(
-        `Impossible de mettre à jour les spécifications du site ${id}.`,
-        error.response?.status || 500
-      );
-    }
+// Fonction helper pour récupérer l'utilisateur actuel depuis localStorage
+const getCurrentUserSync = () => {
+  try {
+    if (typeof window === 'undefined') return null; // Vérification SSR
+    const userString = localStorage.getItem('user');
+    if (!userString) return null;
+    return JSON.parse(userString);
+  } catch (error) {
+    return null;
   }
 };
 
-export default sitesService;
+// Fonction helper pour vérifier les permissions côté frontend
+const checkSitesPermission = (): boolean => {
+  const user = getCurrentUserSync();
+  if (!user) return false;
+  
+  // Les ADMIN ont accès à tout
+  if (user.isAdmin) return true;
+  
+  // Les DEPARTMENT_ADMIN et TEAM_MEMBER ont accès aux sites de leur département
+  if ((user.isDepartmentAdmin || user.isTeamMember) && user.departmentId) {
+    return true;
+  }
+  
+  return false;
+}
+
+const getAllSites = async (filters: SiteFilterDto = {}): Promise<Site[]> => {
+  // Vérifier les permissions avant de faire l'appel
+  if (!checkSitesPermission()) {
+    console.warn('Accès aux sites refusé - permissions insuffisantes');
+    return []; // Retourner un tableau vide au lieu de lever une erreur
+  }
+
+  const user = getCurrentUserSync();
+  if (!user) return [];
+
+  // Construire les paramètres de requête
+  const params = new URLSearchParams();
+  
+  // Appliquer automatiquement le filtre de département pour les non-admins
+  if (!user.isAdmin && user.departmentId) {
+    params.append('departmentId', user.departmentId);
+  } else if (filters.departmentId) {
+    params.append('departmentId', filters.departmentId);
+  }
+  
+  if (filters.search) params.append('search', filters.search);
+  if (filters.region) params.append('region', filters.region);
+  if (filters.status) params.append('status', filters.status);
+  if (filters.type) params.append('type', filters.type);
+  if (filters.showDeleted) params.append('includeDeleted', 'true');
+
+  try {
+    const response = await api.get(`/sites?${params.toString()}`);
+    return response.data;
+  } catch (error: any) {
+    // Si on reçoit quand même une 403, retourner un tableau vide
+    if (error.status === 403 || error.response?.status === 403) {
+      console.warn('Accès aux sites refusé par le serveur - retour de données vides');
+      return [];
+    }
+    throw error;
+  }
+};
+
+const getSiteById = async (id: string): Promise<Site> => {
+  // Vérifier les permissions avant de faire l'appel
+  if (!checkSitesPermission()) {
+    throw new Error('Accès refusé - permissions insuffisantes');
+  }
+
+  const user = getCurrentUserSync();
+  
+  try {
+    const response = await api.get(`/sites/${id}`);
+    const site = response.data;
+    
+    // Vérifier que l'utilisateur peut accéder à ce site spécifique
+    if (!user?.isAdmin && user?.departmentId && site.departmentId !== user.departmentId) {
+      throw new Error('Accès refusé - ce site n\'appartient pas à votre département');
+    }
+    
+    return site;
+  } catch (error: any) {
+    if (error.status === 403 || error.response?.status === 403) {
+      throw new Error('Accès refusé - permissions insuffisantes');
+    }
+    throw error;
+  }
+};
+
+const getSitesByDepartment = async (departmentId: string): Promise<Site[]> => {
+  // Vérifier les permissions avant de faire l'appel
+  if (!checkSitesPermission()) {
+    return [];
+  }
+
+  const user = getCurrentUserSync();
+  
+  // Vérifier que l'utilisateur peut accéder à ce département
+  if (!user?.isAdmin && user?.departmentId !== departmentId) {
+    console.warn('Accès refusé - département différent de celui de l\'utilisateur');
+    return [];
+  }
+
+  return getAllSites({ departmentId });
+};
+
+const createSite = async (siteData: CreateSiteDto): Promise<Site> => {
+  const user = getCurrentUserSync();
+  
+  // Vérifier les permissions de création
+  if (!user?.isAdmin && !user?.isDepartmentAdmin) {
+    throw new Error('Accès refusé - vous n\'avez pas les permissions pour créer des sites');
+  }
+  
+  // Forcer le département de l'utilisateur pour les non-admins
+  if (!user.isAdmin && user.departmentId) {
+    siteData.departmentId = user.departmentId;
+  }
+
+  const response = await api.post('/sites', siteData);
+  return response.data;
+};
+
+const updateSite = async (id: string, siteData: UpdateSiteDto): Promise<Site> => {
+  const user = getCurrentUserSync();
+  
+  // Vérifier les permissions de modification
+  if (!user?.isAdmin && !user?.isDepartmentAdmin) {
+    throw new Error('Accès refusé - vous n\'avez pas les permissions pour modifier des sites');
+  }
+  
+  // Vérifier que le site appartient au département de l'utilisateur (pour les non-admins)
+  if (!user.isAdmin) {
+    const site = await getSiteById(id); // Cela vérifiera déjà les permissions
+  }
+
+  const response = await api.patch(`/sites/${id}`, siteData);
+  return response.data;
+};
+
+const deleteSite = async (id: string): Promise<void> => {
+  const user = getCurrentUserSync();
+  
+  // Vérifier les permissions de suppression
+  if (!user?.isAdmin && !user?.isDepartmentAdmin) {
+    throw new Error('Accès refusé - vous n\'avez pas les permissions pour supprimer des sites');
+  }
+  
+  // Vérifier que le site appartient au département de l'utilisateur (pour les non-admins)
+  if (!user.isAdmin) {
+    const site = await getSiteById(id); // Cela vérifiera déjà les permissions
+  }
+
+  await api.delete(`/sites/${id}`);
+};
+
+const getSiteEquipment = async (siteId: string): Promise<any[]> => {
+  // Vérifier d'abord l'accès au site
+  if (!checkSitesPermission()) {
+    return [];
+  }
+  
+  try {
+    // Vérifier l'accès au site avant de récupérer ses équipements
+    await getSiteById(siteId);
+    
+    const response = await api.get(`/sites/${siteId}/equipment`);
+    return response.data;
+  } catch (error: any) {
+    if (error.message.includes('Accès refusé')) {
+      return [];
+    }
+    throw error;
+  }
+};
+
+export const sitesService = {
+  getAllSites,
+  getSiteById,
+  getSitesByDepartment,
+  createSite,
+  updateSite,
+  deleteSite,
+  getSiteEquipment
+};

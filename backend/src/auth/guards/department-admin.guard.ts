@@ -1,4 +1,5 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import type { CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class DepartmentAdminGuard implements CanActivate {
@@ -6,7 +7,7 @@ export class DepartmentAdminGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
     
-    return user && (user.isAdmin || user.isDepartmentAdmin);
+    return user && (user.isAdmin || user.isDepartmentAdmin || user.isTeamMember);
   }
 }
 
@@ -22,7 +23,18 @@ export class SpecificDepartmentGuard implements CanActivate {
       return true;
     }
     
-    // Les administrateurs de département ont accès uniquement à leur département
-    return user && user.isDepartmentAdmin && user.departmentId === departmentId;
+    // Les administrateurs de département et les membres d'équipe ont accès uniquement à leur département
+    return user && (user.isDepartmentAdmin || user.isTeamMember) && user.departmentId === departmentId;
+  }
+}
+
+@Injectable()
+export class TeamMemberGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+    
+    // Permet l'accès aux admins, admins de département et membres d'équipe
+    return user && (user.isAdmin || user.isDepartmentAdmin || user.isTeamMember);
   }
 } 

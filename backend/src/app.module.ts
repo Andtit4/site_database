@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
-import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { HealthController } from './health/health.controller';
 import { SitesModule } from './sites/sites.module';
 import { EquipmentModule } from './equipment/equipment.module';
 import { TeamsModule } from './teams/teams.module';
@@ -14,6 +14,7 @@ import { UsersModule } from './users/users.module';
 import { typeOrmConfig } from './config/typeorm.config';
 import { SiteSpecificationsModule } from './site-specifications/site-specifications.module';
 import { TableManagerModule } from './table-manager/table-manager.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -23,7 +24,13 @@ import { TableManagerModule } from './table-manager/table-manager.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => typeOrmConfig(configService)
+      useFactory: (configService: ConfigService) => ({
+        ...typeOrmConfig(configService),
+        autoLoadEntities: true,
+        keepConnectionAlive: true,
+        retryAttempts: 10,
+        retryDelay: 3000,
+      })
     }),
     SitesModule,
     EquipmentModule,
@@ -33,9 +40,10 @@ import { TableManagerModule } from './table-manager/table-manager.module';
     AuthModule,
     UsersModule,
     SiteSpecificationsModule,
-    TableManagerModule
+    TableManagerModule,
+    NotificationsModule
   ],
-  controllers: [AppController],
+  controllers: [HealthController],
   providers: [AppService],
 })
 export class AppModule {} 

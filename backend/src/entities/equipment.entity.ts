@@ -29,8 +29,15 @@ export class Equipment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ nullable: true })
   name: string;
+
+  @Column({
+    type: 'enum',
+    enum: EquipmentType,
+    nullable: false
+  })
+  type: EquipmentType;
 
   @Column({ nullable: true })
   description: string;
@@ -76,6 +83,10 @@ export class Equipment {
 
   @Column({ name: 'isDeleted', type: 'boolean', default: false })
   isDeleted: boolean;
+
+  // Champ pour stocker les spécifications techniques dynamiques
+  @Column({ type: 'json', nullable: true })
+  specifications: Record<string, any>;
 
   @ManyToOne(() => Site, site => site.equipment, {
     onDelete: 'CASCADE',

@@ -16,18 +16,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DepartmentsService = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
-const typeorm_2 = require("typeorm");
+const core_1 = require("@nestjs/core");
 const department_entity_1 = require("../entities/department.entity");
-const equipment_entity_1 = require("../entities/equipment.entity");
-const email_service_1 = require("../services/email.service");
 const users_service_1 = require("../users/users.service");
 const team_entity_1 = require("../teams/entities/team.entity");
 let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
-    constructor(departmentsRepository, usersService, emailService) {
+    constructor(departmentsRepository, usersService, request) {
         this.departmentsRepository = departmentsRepository;
         this.usersService = usersService;
-        this.emailService = emailService;
+        this.request = request;
         this.logger = new common_1.Logger(DepartmentsService_1.name);
+    }
+    getCurrentUser() {
+        return this.request.user;
     }
     async create(createDepartmentDto) {
         try {
@@ -71,8 +72,7 @@ let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
                 lastName: department.responsibleName.split(' ').slice(1).join(' ') || department.name,
                 departmentId: department.id
             };
-            const user = await this.usersService.createDepartmentUser(createUserDto);
-            await this.emailService.sendCredentialsEmail(department.contactEmail, username, password, createUserDto.firstName, createUserDto.lastName, true);
+            await this.usersService.createDepartmentUser(createUserDto);
             this.logger.log(`Compte utilisateur créé pour le département: ${department.name}`);
         }
         catch (error) {
@@ -92,6 +92,10 @@ let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
             const { type, isActive, search, managesEquipmentType } = filterDto;
             const query = this.departmentsRepository.createQueryBuilder('department')
                 .where('department.isDeleted = :isDeleted', { isDeleted: false });
+            const user = this.getCurrentUser();
+            if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+                query.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+            }
             if (type) {
                 query.andWhere('department.type = :type', { type });
             }
@@ -147,6 +151,12 @@ let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
             const department = await departmentQuery.getOne();
             if (!department) {
                 throw new common_1.NotFoundException(`Département avec ID "${id}" non trouvé`);
+            }
+            const user = this.getCurrentUser();
+            if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+                if (department.id !== user.departmentId) {
+                    throw new common_1.NotFoundException(`Département avec ID "${id}" non trouvé ou accès non autorisé`);
+                }
             }
             if (department.managedEquipmentTypes && typeof department.managedEquipmentTypes === 'string') {
                 department.managedEquipmentTypes = department.managedEquipmentTypes
@@ -228,16 +238,36 @@ let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
     }
     async getStatistics() {
         try {
-            const totalDepartments = await this.departmentsRepository.count();
-            const activeDepartments = await this.departmentsRepository.count({ where: { isActive: true } });
-            const inactiveDepartments = await this.departmentsRepository.count({ where: { isActive: false } });
+            const user = this.getCurrentUser();
+            let queryBuilder = this.departmentsRepository.createQueryBuilder('department')
+                .where('department.isDeleted = :isDeleted', { isDeleted: false });
+            if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+                queryBuilder = queryBuilder.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+            }
+            const totalDepartments = await queryBuilder.getCount();
+            queryBuilder = this.departmentsRepository.createQueryBuilder('department')
+                .where('department.isDeleted = :isDeleted', { isDeleted: false })
+                .andWhere('department.isActive = :isActive', { isActive: true });
+            if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+                queryBuilder = queryBuilder.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+            }
+            const activeDepartments = await queryBuilder.getCount();
+            queryBuilder = this.departmentsRepository.createQueryBuilder('department')
+                .where('department.isDeleted = :isDeleted', { isDeleted: false })
+                .andWhere('department.isActive = :isActive', { isActive: false });
+            if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+                queryBuilder = queryBuilder.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+            }
+            const inactiveDepartments = await queryBuilder.getCount();
             const departmentsByType = {};
-            for (const type of Object.values(equipment_entity_1.EquipmentType)) {
-                departmentsByType[type] = await this.departmentsRepository.count({
-                    where: {
-                        type: type
-                    }
-                });
+            for (const type of Object.values(department_entity_1.DepartmentType)) {
+                let typeQueryBuilder = this.departmentsRepository.createQueryBuilder('department')
+                    .where('department.isDeleted = :isDeleted', { isDeleted: false })
+                    .andWhere('department.type = :type', { type });
+                if (user && (user.isDepartmentAdmin || user.isTeamMember) && !user.isAdmin && user.departmentId) {
+                    typeQueryBuilder = typeQueryBuilder.andWhere('department.id = :userDepartmentId', { userDepartmentId: user.departmentId });
+                }
+                departmentsByType[type] = await typeQueryBuilder.getCount();
             }
             return {
                 total: totalDepartments,
@@ -254,10 +284,10 @@ let DepartmentsService = DepartmentsService_1 = class DepartmentsService {
 };
 exports.DepartmentsService = DepartmentsService;
 exports.DepartmentsService = DepartmentsService = DepartmentsService_1 = __decorate([
-    (0, common_1.Injectable)(),
+    (0, common_1.Injectable)({ scope: common_1.Scope.REQUEST }),
     __param(0, (0, typeorm_1.InjectRepository)(department_entity_1.Department)),
-    __metadata("design:paramtypes", [typeorm_2.Repository,
-        users_service_1.UsersService,
-        email_service_1.EmailService])
+    __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
+    __param(2, (0, common_1.Inject)(core_1.REQUEST)),
+    __metadata("design:paramtypes", [Function, users_service_1.UsersService, Object])
 ], DepartmentsService);
 //# sourceMappingURL=departments.service.js.map

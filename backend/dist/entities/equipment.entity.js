@@ -40,9 +40,17 @@ __decorate([
     __metadata("design:type", String)
 ], Equipment.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], Equipment.prototype, "name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: EquipmentType,
+        nullable: false
+    }),
+    __metadata("design:type", String)
+], Equipment.prototype, "type", void 0);
 __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
@@ -102,6 +110,10 @@ __decorate([
     (0, typeorm_1.Column)({ name: 'isDeleted', type: 'boolean', default: false }),
     __metadata("design:type", Boolean)
 ], Equipment.prototype, "isDeleted", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], Equipment.prototype, "specifications", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => site_entity_1.Site, site => site.equipment, {
         onDelete: 'CASCADE',

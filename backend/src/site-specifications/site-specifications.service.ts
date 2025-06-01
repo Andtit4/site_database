@@ -1,18 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
+
 import { SiteSpecification } from './entities/site-specification.entity';
-import { CreateSiteSpecificationDto } from './dto/create-site-specification.dto';
-import { UpdateSiteSpecificationDto } from './dto/update-site-specification.dto';
-import { TableManagerService, TableDefinition } from '../table-manager/table-manager.service';
-import { v4 as uuidv4 } from 'uuid';
+import type { UpdateSiteSpecificationDto } from './dto/update-site-specification.dto';
 
 @Injectable()
 export class SiteSpecificationsService {
   constructor(
     @InjectRepository(SiteSpecification)
     private siteSpecificationRepository: Repository<SiteSpecification>,
-    private tableManagerService: TableManagerService,
   ) {}
 
   // Fonction utilitaire pour générer un nom de table à partir du type de site
@@ -21,7 +18,15 @@ export class SiteSpecificationsService {
   }
 
   async findAll(): Promise<SiteSpecification[]> {
-    return this.siteSpecificationRepository.find();
+    try {
+      const specifications = await this.siteSpecificationRepository.find();
+
+      
+return specifications;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des spécifications:', error);
+      throw error;
+    }
   }
 
   async findByType(siteType: string): Promise<SiteSpecification[]> {
@@ -43,8 +48,6 @@ export class SiteSpecificationsService {
   }
 
   async create(dto: any): Promise<SiteSpecification> {
-    console.log('DTO reçu dans le service:', dto);
-    
     try {
       // Vérification des données
       if (!dto || typeof dto !== 'object') {
@@ -59,42 +62,22 @@ export class SiteSpecificationsService {
         throw new Error('Les colonnes sont requises et doivent être un tableau');
       }
       
-      // Génération d'un ID UUID
-      const id = uuidv4();
-      
-      // Conversion des colonnes en JSON
-      const columnsJson = JSON.stringify(dto.columns);
-      
-      console.log('Valeurs à insérer:', {
-        id,
+      // Utilisation de l'ORM TypeORM
+      const specification = this.siteSpecificationRepository.create({
         siteType: dto.siteType,
-        columns: columnsJson
+        columns: dto.columns
       });
       
-      // Exécution d'une requête SQL directe
-      await this.siteSpecificationRepository.query(
-        `INSERT INTO site_specifications (id, siteType, columns) 
-         VALUES (?, ?, ?)`,
-        [id, dto.siteType, columnsJson]
-      );
-      
-      // Récupération de l'entité créée
-      const savedSpecification = await this.siteSpecificationRepository.findOne({
-        where: { id }
-      });
+      // Sauvegarde avec l'ORM
+      const savedSpecification = await this.siteSpecificationRepository.save(specification);
       
       if (!savedSpecification) {
         throw new Error('Échec de la création de la spécification de site');
       }
-      
-      // Créer la table correspondante
-      const tableDefinition: TableDefinition = {
-        tableName: this.getTableNameFromSiteType(savedSpecification.siteType),
-        columns: savedSpecification.columns
-      };
-      
-      await this.tableManagerService.createTable(tableDefinition);
-  
+    
+      // TODO: Créer la table correspondante plus tard
+      console.log(`Table ${this.getTableNameFromSiteType(savedSpecification.siteType)} devrait être créée`);
+
       return savedSpecification;
     } catch (error) {
       console.error('Erreur lors de la création de la spécification:', error);
@@ -109,13 +92,8 @@ export class SiteSpecificationsService {
     const updatedSpecification = this.siteSpecificationRepository.merge(specification, updateSiteSpecificationDto);
     const savedSpecification = await this.siteSpecificationRepository.save(updatedSpecification);
 
-    // Recréer la table avec les nouvelles spécifications
-    const tableDefinition: TableDefinition = {
-      tableName: this.getTableNameFromSiteType(savedSpecification.siteType),
-      columns: savedSpecification.columns
-    };
-    
-    await this.tableManagerService.createTable(tableDefinition);
+    // TODO: Recréer la table avec les nouvelles spécifications plus tard
+    console.log(`Table ${this.getTableNameFromSiteType(savedSpecification.siteType)} devrait être mise à jour`);
 
     return savedSpecification;
   }
@@ -123,11 +101,51 @@ export class SiteSpecificationsService {
   async remove(id: string): Promise<void> {
     const specification = await this.findOne(id);
     
-    // Supprimer d'abord la table
-    await this.tableManagerService.dropTable(this.getTableNameFromSiteType(specification.siteType));
+    // TODO: Supprimer la table plus tard
+    console.log(`Table ${this.getTableNameFromSiteType(specification.siteType)} devrait être supprimée`);
     
-    // Puis supprimer l'enregistrement
+    // Supprimer l'enregistrement
     await this.siteSpecificationRepository.remove(specification);
+  }
+
+  async debugRawData(): Promise<any> {
+    try {
+      // Requête SQL brute pour voir exactement ce qui est stocké
+      const rawData = await this.siteSpecificationRepository.query(
+        'SELECT id, siteType, columns, createdAt, updatedAt FROM site_specifications'
+      );
+      
+      // Vérification avec l'ORM
+      const ormData = await this.siteSpecificationRepository.find();
+      
+      // Comparaison des données
+      const comparison = rawData.map((raw, index) => {
+        const orm = ormData[index];
+
+        
+return {
+          rawId: raw.id,
+          rawSiteType: raw.siteType,
+          rawSiteTypeType: typeof raw.siteType,
+          rawSiteTypeLength: raw.siteType?.length,
+          ormId: orm?.id,
+          ormSiteType: orm?.siteType,
+          ormSiteTypeType: typeof orm?.siteType,
+          ormSiteTypeLength: orm?.siteType?.length,
+          match: raw.siteType === orm?.siteType
+        };
+      });
+      
+      return {
+        rawData,
+        ormData,
+        comparison,
+        tableStructure: await this.siteSpecificationRepository.query('DESCRIBE site_specifications')
+      };
+    } catch (error) {
+      console.error('Erreur lors du debug:', error);
+      throw new Error(`Erreur debug: ${error.message}`);
+    }
   }
 
   async checkTableStructure(): Promise<any> {

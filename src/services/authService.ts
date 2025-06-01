@@ -68,6 +68,9 @@ const authService = {
     localStorage.setItem('token', token);
     Cookies.set('token', token, { expires: 7 }); // Expire dans 7 jours
     
+    // Stocker les données utilisateur pour les vérifications synchrones
+    localStorage.setItem('user', JSON.stringify(user));
+    
     return { user, token };
   },
 
@@ -81,6 +84,7 @@ return response.data;
   logout: (): void => {
     // Supprimer le token du localStorage et des cookies
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     Cookies.remove('token');
   },
 

@@ -33,7 +33,9 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Pagination
+  Pagination,
+  CircularProgress,
+  Alert
 } from '@mui/material'
 
 import type { SelectChangeEvent } from '@mui/material/Select'
@@ -43,17 +45,27 @@ import SearchIcon from '@mui/icons-material/Search'
 import FilterListIcon from '@mui/icons-material/FilterList'
 
 import { sitesService } from '@/services'
-import type { Site, CreateSiteDto, UpdateSiteDto} from '@/services/sitesService';
+import type { Site, CreateSiteDto, UpdateSiteDto } from '@/services/sitesService';
 import { SiteStatus, region } from '@/services/sitesService'
 import siteSpecificationsService, { SiteTypes } from '@/services/siteSpecificationsService'
+import { useAuth } from '@/hooks/useAuth'
+import { useSitesWithPermissions } from '@/hooks/useSitesWithPermissions'
 
 // Nombre de sites par page
 const ITEMS_PER_PAGE = 10
 
 const SitesPage = () => {
-  const [sites, setSites] = useState<Site[]>([])
+  const { 
+    user, 
+    loading: authLoading, 
+    canViewAllResources, 
+    canCreate, 
+    canEdit, 
+    canDelete,
+    getUserDepartmentId 
+  } = useAuth()
+  
   const [filteredSites, setFilteredSites] = useState<Site[]>([])
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [openDialog, setOpenDialog] = useState(false)
   const [currentSite, setCurrentSite] = useState<Site | null>(null)
@@ -73,6 +85,18 @@ const SitesPage = () => {
     type: ''
   });
 
+  // Utiliser le hook personnalisé pour les sites avec gestion des permissions
+  const { 
+    sites, 
+    loading, 
+    error: sitesError, 
+    permissionError, 
+    refreshSites 
+  } = useSitesWithPermissions({
+    filters: { showDeleted },
+    autoFetch: true
+  });
+
   const [formData, setFormData] = useState<CreateSiteDto>({
     id: '',
     name: '',
@@ -81,27 +105,13 @@ const SitesPage = () => {
     latitude: 0,
     status: SiteStatus.ACTIVE,
     type: SiteTypes.TOUR,
-    specifications: {}
+    specifications: {},
+    departmentId: getUserDepartmentId() || undefined // Définir automatiquement le département de l'utilisateur
   })
 
   const router = useRouter()
   const params = useParams()
   const lang = params.lang || 'fr'
-
-  const fetchSites = async () => {
-    try {
-      setLoading(true)
-      const data = await sitesService.getAllSites(showDeleted)
-
-      setSites(data)
-      applyFilters(data)
-    } catch (err) {
-      console.error('Erreur lors de la récupération des sites:', err)
-      setError('Erreur lors du chargement des sites')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const fetchSpecifications = async () => {
     try {
@@ -114,17 +124,29 @@ const SitesPage = () => {
   };
 
   useEffect(() => {
-    fetchSites()
-    fetchSpecifications()
+    if (!authLoading && user) {
+      fetchSpecifications()
+    }
+  }, [authLoading, user])
 
+  // Rafraîchir les sites quand showDeleted change
+  useEffect(() => {
+    if (!authLoading && user) {
+      refreshSites({ showDeleted });
+    }
+  }, [showDeleted, authLoading, user, refreshSites])
+
+  useEffect(() => {
     // Ajouter un écouteur d'événement pour ouvrir le dialogue d'ajout depuis le menu
     const handleOpenAddDialog = () => {
-      handleOpenDialog();
+      if (canCreate('site')) {
+        handleOpenDialog();
+      }
     };
 
     // Ajouter un écouteur d'événement pour ouvrir le dialogue d'édition depuis la page de détails
     const handleOpenEditDialog = (event: CustomEvent) => {
-      if (event.detail && event.detail.site) {
+      if (event.detail && event.detail.site && canEdit('site')) {
         handleOpenDialog(event.detail.site);
       }
     };
@@ -137,7 +159,19 @@ const SitesPage = () => {
       window.removeEventListener('openAddSiteDialog', handleOpenAddDialog);
       window.removeEventListener('openSiteEditDialog', handleOpenEditDialog as EventListener);
     };
-  }, [showDeleted])
+  }, [canCreate, canEdit])
+
+  // Mettre à jour le département par défaut dans le formulaire
+  useEffect(() => {
+    const userDepartmentId = getUserDepartmentId()
+
+    if (userDepartmentId && !canViewAllResources()) {
+      setFormData(prev => ({
+        ...prev,
+        departmentId: userDepartmentId
+      }))
+    }
+  }, [user, getUserDepartmentId, canViewAllResources])
 
   // Lorsque le type de site change, récupérer les spécifications correspondantes
   useEffect(() => {
@@ -159,7 +193,7 @@ const SitesPage = () => {
   // Appliquer les filtres lors des changements
   useEffect(() => {
     applyFilters(sites);
-  }, [filterValues]);
+  }, [filterValues, sites]);
 
   // Gérer le changement de page
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
@@ -221,7 +255,8 @@ const SitesPage = () => {
         oldBase: site.oldBase,
         newBase: site.newBase,
         type: site.type || SiteTypes.TOUR,
-        specifications: site.specifications || {}
+        specifications: site.specifications || {},
+        departmentId: site.departmentId
       })
     } else {
       setCurrentSite(null)
@@ -233,7 +268,8 @@ const SitesPage = () => {
         latitude: 0,
         status: SiteStatus.ACTIVE,
         type: SiteTypes.TOUR,
-        specifications: {}
+        specifications: {},
+        departmentId: getUserDepartmentId() || undefined
       })
     }
 
@@ -303,7 +339,8 @@ return
         oldBase: formData.oldBase,
         newBase: formData.newBase,
         type: formData.type,
-        specifications: formData.specifications
+        specifications: formData.specifications,
+        departmentId: formData.departmentId
       };
       
       // Déboguer les données avant soumission
@@ -330,7 +367,7 @@ return
       }
 
       handleCloseDialog()
-      fetchSites() // Recharger la liste
+      refreshSites() // Recharger la liste
     } catch (err: any) {
       console.error('Erreur lors de l\'enregistrement du site:', err)
 
@@ -353,11 +390,10 @@ return
     if (!siteToDelete) return;
 
     try {
-      setLoading(true);
       await sitesService.deleteSite(siteToDelete);
 
       // Actualiser la liste des sites après la suppression
-      await fetchSites();
+      await refreshSites();
 
       // Fermer la boîte de dialogue
       handleCloseDeleteDialog();
@@ -366,27 +402,21 @@ return
 
       // Afficher un message d'erreur plus précis si disponible
       setError(err.message || 'Erreur lors de la suppression du site');
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleRestore = async (id: string) => {
     try {
-      setLoading(true);
-
       // Restaurer le site en changeant son statut à ACTIVE
       await sitesService.updateSite(id, { status: SiteStatus.ACTIVE });
 
       // Actualiser la liste des sites
-      await fetchSites();
+      await refreshSites();
     } catch (err: any) {
       console.error('Erreur lors de la restauration du site:', err);
 
       // Afficher un message d'erreur plus précis si disponible
       setError(err.message || 'Erreur lors de la restauration du site');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -434,6 +464,22 @@ return
     router.push(`/${lang}/sites/${siteId}`)
   }
 
+  // Afficher le loader pendant l'authentification
+  if (authLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  // Rediriger si l'utilisateur n'est pas authentifié
+  if (!user) {
+    router.push(`/${lang}/login`)
+    
+return null
+  }
+
   if (loading && sites.length === 0) {
     return <Typography>Chargement des sites...</Typography>
   }
@@ -453,14 +499,33 @@ return
             }
             label="Afficher les sites supprimés"
           />
-          <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
-            Ajouter un site
-          </Button>
+          {canCreate('site') && (
+            <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
+              Ajouter un site
+            </Button>
+          )}
         </Box>
       </Box>
 
-      {error && (
-        <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+      {/* Alertes d'erreur */}
+      {(error || sitesError) && (
+        <Alert severity="error" sx={{ mb: 2 }}>{error || sitesError}</Alert>
+      )}
+
+      {/* Alerte pour les erreurs de permissions */}
+      {permissionError && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+            Accès limité aux données des sites
+          </Typography>
+          <Typography variant="body2">
+            Votre compte n&apos;a pas les permissions nécessaires pour accéder aux données des sites depuis le serveur. 
+            Veuillez contacter votre administrateur système pour obtenir les autorisations nécessaires.
+            {!canViewAllResources() && (
+              <> Vous devriez normalement pouvoir accéder aux sites de votre département.</>
+            )}
+          </Typography>
+        </Alert>
       )}
 
       {/* Section de filtrage */}
@@ -562,13 +627,13 @@ return
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={7} align="center">
-                      Chargement...
+                      <CircularProgress />
                     </TableCell>
                   </TableRow>
                 ) : displayedSites.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} align="center">
-                      Aucun site trouvé
+                      {permissionError ? 'Aucun accès aux sites' : 'Aucun site trouvé'}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -589,26 +654,32 @@ return
                         />
                       </TableCell>
                       <TableCell>
-                        <Button 
-                          size="small" 
-                          onClick={() => handleOpenDialog(site)}
-                          disabled={site.status === SiteStatus.DELETED}
-                        >
-                          Modifier
-                        </Button>
-                        {site.status !== SiteStatus.DELETED ? (
+                        {canEdit('site') && (
+                          <Button 
+                            size="small" 
+                            onClick={() => handleOpenDialog(site)}
+                            disabled={site.status === SiteStatus.DELETED}
+                            sx={{ mr: 1 }}
+                          >
+                            Modifier
+                          </Button>
+                        )}
+                        {canDelete('site') && site.status !== SiteStatus.DELETED && (
                           <Button 
                             size="small" 
                             color="error" 
                             onClick={() => handleOpenDeleteDialog(site.id)}
+                            sx={{ mr: 1 }}
                           >
                             Supprimer
                           </Button>
-                        ) : (
+                        )}
+                        {canEdit('site') && site.status === SiteStatus.DELETED && (
                           <Button 
                             size="small" 
                             color="success" 
                             onClick={() => handleRestore(site.id)}
+                            sx={{ mr: 1 }}
                           >
                             Restaurer
                           </Button>

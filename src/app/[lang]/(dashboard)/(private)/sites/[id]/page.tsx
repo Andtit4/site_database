@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+
+import { useRouter } from 'next/navigation'
+
 import {
   Box,
   Button,
@@ -17,7 +19,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Divider,
   CircularProgress,
   Tabs,
   Tab,
@@ -25,8 +26,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  IconButton
+  DialogActions
 } from '@mui/material'
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -42,6 +42,7 @@ import { sitesService } from '@/services'
 import siteSpecificationsService from '@/services/siteSpecificationsService'
 import { SiteStatus } from '@/services/sitesService'
 import type { Site } from '@/services/sitesService'
+import { useAuth } from '@/hooks/useAuth'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -72,6 +73,16 @@ function TabPanel(props: TabPanelProps) {
 const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) => {
   const router = useRouter()
   const lang = params.lang || 'fr'
+
+  const { 
+    user, 
+    loading: authLoading, 
+    canViewSpecifications, 
+    canEdit, 
+    canDelete,
+    canAccessDepartmentResource 
+  } = useAuth()
+  
   const [site, setSite] = useState<Site | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -84,21 +95,32 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
     try {
       setLoading(true)
       const data = await sitesService.getSiteById(params.id)
+      
+      // Vérifier si l'utilisateur peut accéder à ce site
+      if (!canAccessDepartmentResource(data.departmentId || null)) {
+        setError('Vous n\'avez pas l\'autorisation d\'accéder à ce site.')
+        
+return
+      }
+      
       setSite(data)
       
       // Charger les équipements du site
       try {
         const equipmentData = await sitesService.getSiteEquipment(params.id)
+
         setEquipments(equipmentData)
       } catch (err) {
         console.error('Erreur lors du chargement des équipements:', err)
+
         // Ne pas bloquer l'affichage du site si les équipements ne sont pas chargés
       }
       
-      // Si le site a un type, charger les spécifications du type
-      if (data.type) {
+      // Si le site a un type et que l'utilisateur peut voir les spécifications, charger les spécifications du type
+      if (data.type && canViewSpecifications()) {
         try {
           const specifications = await siteSpecificationsService.getSiteSpecificationsByType(data.type)
+
           if (specifications && specifications.length > 0) {
             setSiteType(specifications[0])
           }
@@ -116,8 +138,10 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
   }
 
   useEffect(() => {
-    fetchSite()
-  }, [params.id])
+    if (!authLoading && user) {
+      fetchSite()
+    }
+  }, [params.id, authLoading, user])
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue)
@@ -128,18 +152,33 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
   }
 
   const handleEditClick = () => {
+    // Vérifier les permissions avant de permettre l'édition
+    if (!canEdit('site')) {
+      setError('Vous n\'avez pas l\'autorisation de modifier ce site.')
+      
+return
+    }
+    
     // Rediriger vers la page principale avec le dialogue d'édition ouvert
     // Utiliser un événement personnalisé pour ouvrir le dialogue
     navigateToSitesList()
     setTimeout(() => {
       if (site) {
         const event = new CustomEvent('openSiteEditDialog', { detail: { site } })
+
         window.dispatchEvent(event)
       }
     }, 100)
   }
 
   const handleDeleteClick = () => {
+    // Vérifier les permissions avant de permettre la suppression
+    if (!canDelete('site')) {
+      setError('Vous n\'avez pas l\'autorisation de supprimer ce site.')
+      
+return
+    }
+    
     setDeleteDialogOpen(true)
   }
 
@@ -199,6 +238,22 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
     router.push(`/${lang}/equipment/${equipmentId}`)
   }
 
+  // Afficher le loader pendant l'authentification
+  if (authLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  // Rediriger si l'utilisateur n'est pas authentifié
+  if (!user) {
+    router.push(`/${lang}/login`)
+    
+return null
+  }
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
@@ -241,6 +296,38 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
     )
   }
 
+  // Préparer les onglets selon les permissions
+  const availableTabs = [
+    {
+      icon: <EquipmentIcon />,
+      label: 'Équipements',
+      value: 0
+    }
+  ]
+
+  // Ajouter l'onglet spécifications seulement si l'utilisateur a la permission
+  if (canViewSpecifications()) {
+    availableTabs.unshift({
+      icon: <InfoIcon />,
+      label: 'Spécifications',
+      value: 0
+    })
+
+    // Réajuster les valeurs des onglets
+    availableTabs[1].value = 1
+    availableTabs.push({
+      icon: <ConstructionIcon />,
+      label: 'Maintenance',
+      value: 2
+    })
+  } else {
+    availableTabs.push({
+      icon: <ConstructionIcon />,
+      label: 'Maintenance',
+      value: 1
+    })
+  }
+
   return (
     <Box sx={{ p: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
@@ -251,22 +338,26 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
           Retour à la liste des sites
         </Button>
         <Box>
-          <Button 
-            startIcon={<EditIcon />} 
-            onClick={handleEditClick}
-            sx={{ mr: 1 }}
-            disabled={site.status === SiteStatus.DELETED}
-          >
-            Modifier
-          </Button>
-          <Button 
-            startIcon={<DeleteIcon />} 
-            color="error" 
-            onClick={handleDeleteClick}
-            disabled={site.status === SiteStatus.DELETED}
-          >
-            Supprimer
-          </Button>
+          {canEdit('site') && (
+            <Button 
+              startIcon={<EditIcon />} 
+              onClick={handleEditClick}
+              sx={{ mr: 1 }}
+              disabled={site.status === SiteStatus.DELETED}
+            >
+              Modifier
+            </Button>
+          )}
+          {canDelete('site') && (
+            <Button 
+              startIcon={<DeleteIcon />} 
+              color="error" 
+              onClick={handleDeleteClick}
+              disabled={site.status === SiteStatus.DELETED}
+            >
+              Supprimer
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -351,7 +442,7 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Box>
-                    <Typography variant="body2" color="text.secondary">Nombre d'équipements:</Typography>
+                    <Typography variant="body2" color="text.secondary">Nombre d&apos;équipements:</Typography>
                     <Typography>{equipments.length}</Typography>
                   </Box>
                   <Box>
@@ -386,61 +477,70 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
       <Box sx={{ width: '100%' }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tabValue} onChange={handleTabChange} aria-label="site tabs">
-            <Tab icon={<InfoIcon />} iconPosition="start" label="Spécifications" />
-            <Tab icon={<EquipmentIcon />} iconPosition="start" label="Équipements" />
-            <Tab icon={<ConstructionIcon />} iconPosition="start" label="Maintenance" />
+            {availableTabs.map((tab, index) => (
+              <Tab 
+                key={index}
+                icon={tab.icon} 
+                iconPosition="start" 
+                label={tab.label}
+                value={tab.value}
+              />
+            ))}
           </Tabs>
         </Box>
 
-        <TabPanel value={tabValue} index={0}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Spécifications spécifiques au type {site.type || 'Non défini'}
-              </Typography>
-              
-              {site.specifications && Object.keys(site.specifications).length > 0 ? (
-                <TableContainer component={Paper}>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Nom</TableCell>
-                        <TableCell>Valeur</TableCell>
-                        {siteType && (
-                          <TableCell>Type</TableCell>
-                        )}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {Object.entries(site.specifications).map(([key, value]) => {
-                        // Trouver le type de la colonne si disponible
-                        const columnDef = siteType?.columns?.find((col: any) => col.name === key);
-                        
-                        return (
-                          <TableRow key={key}>
-                            <TableCell>{key}</TableCell>
-                            <TableCell>{value !== null && value !== undefined ? String(value) : '-'}</TableCell>
-                            {siteType && (
-                              <TableCell>
-                                {columnDef ? `${columnDef.type}${columnDef.length ? `(${columnDef.length})` : ''}` : '-'}
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              ) : (
-                <Alert severity="info">
-                  Ce site n'a pas de spécifications définies.
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        </TabPanel>
+        {/* Onglet Spécifications - seulement si l'utilisateur a la permission */}
+        {canViewSpecifications() && (
+          <TabPanel value={tabValue} index={0}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Spécifications spécifiques au type {site.type || 'Non défini'}
+                </Typography>
+                
+                {site.specifications && Object.keys(site.specifications).length > 0 ? (
+                  <TableContainer component={Paper}>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Nom</TableCell>
+                          <TableCell>Valeur</TableCell>
+                          {siteType && (
+                            <TableCell>Type</TableCell>
+                          )}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {Object.entries(site.specifications).map(([key, value]) => {
+                          // Trouver le type de la colonne si disponible
+                          const columnDef = siteType?.columns?.find((col: any) => col.name === key);
+                          
+                          return (
+                            <TableRow key={key}>
+                              <TableCell>{key}</TableCell>
+                              <TableCell>{value !== null && value !== undefined ? String(value) : '-'}</TableCell>
+                              {siteType && (
+                                <TableCell>
+                                  {columnDef ? `${columnDef.type}${columnDef.length ? `(${columnDef.length})` : ''}` : '-'}
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                ) : (
+                  <Alert severity="info">
+                    Ce site n&apos;a pas de spécifications définies.
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          </TabPanel>
+        )}
 
-        <TabPanel value={tabValue} index={1}>
+        <TabPanel value={tabValue} index={canViewSpecifications() ? 1 : 0}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -456,7 +556,7 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
                         <TableCell>Type</TableCell>
                         <TableCell>Modèle</TableCell>
                         <TableCell>Statut</TableCell>
-                        <TableCell>Date d'installation</TableCell>
+                        <TableCell>Date d&apos;installation</TableCell>
                         <TableCell>Actions</TableCell>
                       </TableRow>
                     </TableHead>
@@ -498,7 +598,7 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
           </Card>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={canViewSpecifications() ? 2 : 1}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>

@@ -1,14 +1,15 @@
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
+import type { Request } from 'express';
 import { Department } from '../entities/department.entity';
-import { CreateDepartmentDto, UpdateDepartmentDto, DepartmentFilterDto } from '../dto/department.dto';
-import { EmailService } from '../services/email.service';
+import type { CreateDepartmentDto, UpdateDepartmentDto, DepartmentFilterDto } from '../dto/department.dto';
 import { UsersService } from '../users/users.service';
 export declare class DepartmentsService {
     private departmentsRepository;
     private usersService;
-    private emailService;
+    private request;
     private readonly logger;
-    constructor(departmentsRepository: Repository<Department>, usersService: UsersService, emailService: EmailService);
+    constructor(departmentsRepository: Repository<Department>, usersService: UsersService, request: Request);
+    private getCurrentUser;
     create(createDepartmentDto: CreateDepartmentDto): Promise<Department>;
     private createDepartmentUser;
     private generateRandomPassword;

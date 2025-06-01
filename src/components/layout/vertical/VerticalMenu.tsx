@@ -12,10 +12,7 @@ import type { getDictionary } from '@/utils/getDictionary'
 import type { VerticalMenuContextProps } from '@menu/components/vertical-menu/Menu'
 
 // Component Imports
-import { Menu, SubMenu, MenuItem, MenuSection } from '@menu/vertical-menu'
-import CustomChip from '@core/components/mui/Chip'
-
-// import { GenerateVerticalMenu } from '@components/GenerateMenu'
+import { Menu, SubMenu, MenuItem } from '@menu/vertical-menu'
 
 // Hook Imports
 import useVerticalNav from '@menu/hooks/useVerticalNav'
@@ -77,7 +74,6 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
         popoutMenuOffset={{ mainAxis: 23 }}
         menuItemStyles={menuItemStyles(verticalNavOptions, theme)}
         renderExpandIcon={({ open }) => <RenderExpandIcon open={open} transitionDuration={transitionDuration} />}
-        renderExpandedMenuItemIcon={{ icon: <i className='tabler-circle text-xs' /> }}
         menuSectionStyles={menuSectionStyles(verticalNavOptions, theme)}
       >
         {/* Dashboard */}
@@ -89,61 +85,47 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
         </MenuItem>
         
         {/* Gestion des sites */}
-        <SubMenu
-          label="Sites" 
+        <MenuItem 
+          href={`/${locale}/sites`}
           icon={<i className='tabler-building-antenna' />}
         >
-          <MenuItem href={`/${locale}/sites`}>Liste des sites</MenuItem>
-          <MenuItem href={`/${locale}/sites`} onClick={() => window.dispatchEvent(new CustomEvent('openAddSiteDialog'))}>Ajouter un site</MenuItem>
-        </SubMenu>
-
-        {/* Gestion des départements */}
-        <SubMenu 
-          label="Départements" 
-          icon={<i className='tabler-building' />}
-        >
-          <MenuItem href={`/${locale}/departments`}>Liste des départements</MenuItem>
-          <MenuItem href={`/${locale}/departments`} onClick={() => window.dispatchEvent(new CustomEvent('openAddDepartmentDialog'))}>Ajouter un département</MenuItem>
-        </SubMenu>
-
-        {/* Gestion des équipes */}
-        <SubMenu 
-          label="Équipes" 
-          icon={<i className='tabler-users-group' />}
-        >
-          <MenuItem href={`/${locale}/teams`}>Liste des équipes</MenuItem>
-          <MenuItem href={`/${locale}/teams`} onClick={() => window.dispatchEvent(new CustomEvent('openAddTeamDialog'))}>Ajouter une équipe</MenuItem>
-        </SubMenu>
+          Sites
+        </MenuItem>
 
         {/* Gestion des équipements */}
-        <SubMenu 
-          label="Équipements" 
+        <MenuItem 
+          href={`/${locale}/equipment`}
           icon={<i className='tabler-device-mobile' />}
         >
-          <MenuItem href={`/${locale}/equipment`}>Liste des équipements</MenuItem>
-          <MenuItem href={`/${locale}/equipment`} onClick={() => window.dispatchEvent(new CustomEvent('openAddEquipmentDialog'))}>Ajouter un équipement</MenuItem>
-        </SubMenu>
+          Équipements
+        </MenuItem>
+
+        {/* Gestion des équipes */}
+        <MenuItem 
+          href={`/${locale}/teams`}
+          icon={<i className='tabler-users-group' />}
+        >
+          Équipes
+        </MenuItem>
+
+        {/* Gestion des départements */}
+        <MenuItem 
+          href={`/${locale}/departments`}
+          icon={<i className='tabler-building' />}
+        >
+          Départements
+        </MenuItem>
 
         {/* Spécifications */}
         <SubMenu 
           label="Spécifications" 
           icon={<i className='tabler-list-details' />}
         >
-          <MenuItem href={`/${locale}/specifications`}>Spécifications d'équipements</MenuItem>
-          <MenuItem href={`/${locale}/specifications`} onClick={() => window.dispatchEvent(new CustomEvent('openAddSpecificationDialog'))}>Ajouter une spécification d'équipement</MenuItem>
-          <MenuItem href={`/${locale}/site-specifications`}>Spécifications de sites</MenuItem>
-          <MenuItem href={`/${locale}/site-specifications`} onClick={() => window.dispatchEvent(new CustomEvent('openAddSiteSpecificationDialog'))}>Ajouter une spécification de site</MenuItem>
+          <MenuItem href={`/${locale}/specifications`}>Équipements</MenuItem>
+          <MenuItem href={`/${locale}/site-specifications`}>Sites</MenuItem>
+          <MenuItem href={`/${locale}/departments-specifications`}>Par Département</MenuItem>
         </SubMenu>
       </Menu>
-      {/* <Menu
-        popoutMenuOffset={{ mainAxis: 23 }}
-        menuItemStyles={menuItemStyles(verticalNavOptions, theme)}
-        renderExpandIcon={({ open }) => <RenderExpandIcon open={open} transitionDuration={transitionDuration} />}
-        renderExpandedMenuItemIcon={{ icon: <i className='tabler-circle text-xs' /> }}
-        menuSectionStyles={menuSectionStyles(verticalNavOptions, theme)}
-      >
-        <GenerateVerticalMenu menuData={menuData(dictionary)} />
-      </Menu> */}
     </ScrollWrapper>
   )
 }

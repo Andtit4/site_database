@@ -150,6 +150,17 @@ export class SitesController {
     return this.sitesService.getSiteTeams(id);
   }
 
+  @ApiOperation({ summary: 'Obtenir les équipements d\'un site', description: 'Récupère la liste des équipements associés à un site' })
+  @ApiParam({ name: 'id', description: 'Identifiant du site', example: 'SITE001' })
+  @ApiResponse({ status: 200, description: 'Liste des équipements du site récupérée avec succès' })
+  @ApiResponse({ status: 404, description: 'Site non trouvé' })
+  @ApiResponse({ status: 401, description: 'Non autorisé' })
+  @Get(':id/equipment')
+  @UseGuards(DepartmentAdminGuard)
+  async getSiteEquipment(@Param('id') id: string) {
+    return this.sitesService.getSiteEquipment(id);
+  }
+
   @Get(':id/specifications')
   @Roles('admin', 'user')
   @ApiOperation({ summary: 'Récupérer les spécifications d\'un site' })

@@ -6,13 +6,13 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SpecificDepartmentGuard = exports.DepartmentAdminGuard = void 0;
+exports.TeamMemberGuard = exports.SpecificDepartmentGuard = exports.DepartmentAdminGuard = void 0;
 const common_1 = require("@nestjs/common");
 let DepartmentAdminGuard = class DepartmentAdminGuard {
     canActivate(context) {
         const request = context.switchToHttp().getRequest();
         const user = request.user;
-        return user && (user.isAdmin || user.isDepartmentAdmin);
+        return user && (user.isAdmin || user.isDepartmentAdmin || user.isTeamMember);
     }
 };
 exports.DepartmentAdminGuard = DepartmentAdminGuard;
@@ -27,11 +27,22 @@ let SpecificDepartmentGuard = class SpecificDepartmentGuard {
         if (user && user.isAdmin) {
             return true;
         }
-        return user && user.isDepartmentAdmin && user.departmentId === departmentId;
+        return user && (user.isDepartmentAdmin || user.isTeamMember) && user.departmentId === departmentId;
     }
 };
 exports.SpecificDepartmentGuard = SpecificDepartmentGuard;
 exports.SpecificDepartmentGuard = SpecificDepartmentGuard = __decorate([
     (0, common_1.Injectable)()
 ], SpecificDepartmentGuard);
+let TeamMemberGuard = class TeamMemberGuard {
+    canActivate(context) {
+        const request = context.switchToHttp().getRequest();
+        const user = request.user;
+        return user && (user.isAdmin || user.isDepartmentAdmin || user.isTeamMember);
+    }
+};
+exports.TeamMemberGuard = TeamMemberGuard;
+exports.TeamMemberGuard = TeamMemberGuard = __decorate([
+    (0, common_1.Injectable)()
+], TeamMemberGuard);
 //# sourceMappingURL=department-admin.guard.js.map
