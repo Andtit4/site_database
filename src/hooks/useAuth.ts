@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 import authService, { type User } from '@/services/authService'
 
@@ -73,17 +73,50 @@ export const useAuth = () => {
   }
 
   // Fonctions de permissions
-  const canViewAllResources = (): boolean => {
+  const canViewAllResources = useCallback((): boolean => {
     if (!user) return false
     return user.isAdmin
-  }
+  }, [user?.isAdmin])
 
-  const canViewSpecifications = (): boolean => {
+  const canViewSpecifications = useCallback((): boolean => {
     if (!user) return false
     return user.isAdmin || user.isDepartmentAdmin
-  }
+  }, [user?.isAdmin, user?.isDepartmentAdmin])
 
-  const canCreate = (resourceType: 'site' | 'team' | 'equipment'): boolean => {
+  // Nouvelle fonction : Accès à la gestion des utilisateurs (ADMIN seulement)
+  const canManageUsers = useCallback((): boolean => {
+    if (!user) return false
+    return user.isAdmin // Seuls les ADMIN globaux peuvent gérer les utilisateurs
+  }, [user?.isAdmin])
+
+  // Nouvelle fonction : Accès aux spécifications de sites
+  const canViewSiteSpecifications = useCallback((): boolean => {
+    if (!user) return false
+    return user.isAdmin // Seuls les ADMIN globaux peuvent voir les spécifications de sites
+  }, [user?.isAdmin])
+
+  // Nouvelle fonction : Accès aux spécifications d'équipements de son département
+  const canViewEquipmentSpecifications = useCallback((): boolean => {
+    if (!user) return false
+    return user.isAdmin || user.isDepartmentAdmin // ADMIN et DEPARTMENT_ADMIN
+  }, [user?.isAdmin, user?.isDepartmentAdmin])
+
+  // Nouvelle fonction : Filtrer les utilisateurs selon le département
+  const canViewUser = useCallback((userDepartmentId?: string | null): boolean => {
+    if (!user) return false
+    
+    // Les ADMIN peuvent voir tous les utilisateurs
+    if (user.isAdmin) return true
+    
+    // Les DEPARTMENT_ADMIN ne voient que les utilisateurs de leur département
+    if (user.isDepartmentAdmin && user.departmentId) {
+      return userDepartmentId === user.departmentId?.toString()
+    }
+    
+    return false
+  }, [user?.isAdmin, user?.isDepartmentAdmin, user?.departmentId])
+
+  const canCreate = useCallback((resourceType: 'site' | 'team' | 'equipment'): boolean => {
     if (!user) return false
     
     switch (resourceType) {
@@ -96,9 +129,9 @@ export const useAuth = () => {
       default:
         return false
     }
-  }
+  }, [user?.isAdmin, user?.isDepartmentAdmin, user?.isTeamMember])
 
-  const canEdit = (resourceType: 'site' | 'team' | 'equipment'): boolean => {
+  const canEdit = useCallback((resourceType: 'site' | 'team' | 'equipment'): boolean => {
     if (!user) return false
     
     switch (resourceType) {
@@ -111,9 +144,9 @@ export const useAuth = () => {
       default:
         return false
     }
-  }
+  }, [user?.isAdmin, user?.isDepartmentAdmin, user?.isTeamMember])
 
-  const canDelete = (resourceType: 'site' | 'team' | 'equipment'): boolean => {
+  const canDelete = useCallback((resourceType: 'site' | 'team' | 'equipment'): boolean => {
     if (!user) return false
     
     switch (resourceType) {
@@ -126,17 +159,17 @@ export const useAuth = () => {
       default:
         return false
     }
-  }
+  }, [user?.isAdmin, user?.isDepartmentAdmin])
 
-  const getUserDepartmentId = (): string | null => {
+  const getUserDepartmentId = useCallback((): string | null => {
     return user?.departmentId?.toString() || null
-  }
+  }, [user?.departmentId])
 
-  const getUserTeamId = (): string | null => {
+  const getUserTeamId = useCallback((): string | null => {
     return user?.teamId?.toString() || null
-  }
+  }, [user?.teamId])
 
-  const canAccessDepartmentResource = (resourceDepartmentId: string | null): boolean => {
+  const canAccessDepartmentResource = useCallback((resourceDepartmentId: string | null): boolean => {
     if (!user) return false
     
     // Les admins ont accès à tout
@@ -147,7 +180,7 @@ export const useAuth = () => {
     
     // Vérifier si l'utilisateur a accès au département de la ressource
     return user.departmentId?.toString() === resourceDepartmentId
-  }
+  }, [user?.isAdmin, user?.departmentId])
 
   return {
     user,
@@ -164,7 +197,12 @@ export const useAuth = () => {
     canDelete,
     getUserDepartmentId,
     getUserTeamId,
-    canAccessDepartmentResource
+    canAccessDepartmentResource,
+    // Nouvelles fonctions de permissions
+    canManageUsers,
+    canViewSiteSpecifications,
+    canViewEquipmentSpecifications,
+    canViewUser
   }
 }
 

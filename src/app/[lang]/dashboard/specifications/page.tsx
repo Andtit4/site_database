@@ -40,11 +40,34 @@ import {
   EquipmentTypes,
   ColumnTypes
 } from '@/services/specificationsService'
+import { useAuth } from '@/hooks/useAuth'
+import { useRouter, useParams } from 'next/navigation'
 
 const SpecificationsPage = () => {
+  const { 
+    user, 
+    loading: authLoading, 
+    canViewEquipmentSpecifications,
+    canViewAllResources,
+    getUserDepartmentId 
+  } = useAuth()
+  const router = useRouter()
+  const params = useParams()
+  const lang = params.lang || 'fr'
+
   const [specifications, setSpecifications] = useState<Specification[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Vérifier les permissions
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (!canViewEquipmentSpecifications()) {
+        router.push(`/${lang}/dashboard/telecom-dashboard`)
+        return
+      }
+    }
+  }, [authLoading, user, canViewEquipmentSpecifications, router, lang])
   const [openDialog, setOpenDialog] = useState(false)
   const [currentSpecification, setCurrentSpecification] = useState<Specification | null>(null)
   const [formData, setFormData] = useState<CreateSpecificationDto>({
@@ -63,7 +86,20 @@ const SpecificationsPage = () => {
     try {
       setLoading(true)
       const data = await specificationsService.getAllSpecifications()
-      setSpecifications(data)
+      
+      // Filtrer selon les permissions de l'utilisateur
+      let filteredData = data
+      if (!canViewAllResources() && user?.isDepartmentAdmin) {
+        // Pour les admins de département, filtrer selon les types d'équipements de leur département
+        const userDepartmentId = getUserDepartmentId()
+        if (userDepartmentId) {
+          // TODO: Implémenter la logique pour récupérer les types d'équipements autorisés pour ce département
+          // Pour l'instant, on affiche toutes les spécifications mais l'admin ne pourra créer que certains types
+          filteredData = data
+        }
+      }
+      
+      setSpecifications(filteredData)
       setError(null)
     } catch (err: any) {
       console.error('Erreur lors de la récupération des spécifications:', err)

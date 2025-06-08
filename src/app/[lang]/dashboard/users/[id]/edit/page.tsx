@@ -153,7 +153,9 @@ const EditUserPage = () => {
         isTeamMember: userData.isTeamMember,
         isActive: userData.isActive,
         hasDepartmentRights: userData.hasDepartmentRights,
-        managedEquipmentTypes: userData.managedEquipmentTypes || []
+        managedEquipmentTypes: Array.isArray(userData.managedEquipmentTypes) 
+          ? userData.managedEquipmentTypes 
+          : []
       })
     } catch (err) {
       console.error('Erreur lors de la récupération de l\'utilisateur:', err)
@@ -571,9 +573,9 @@ const EditUserPage = () => {
                     input={<OutlinedInput label="Types d'équipement" />}
                     renderValue={(selected) => (
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => (
+                        {Array.isArray(selected) ? selected.map((value) => (
                           <Chip key={value} label={value} />
-                        ))}
+                        )) : null}
                       </Box>
                     )}
                   >

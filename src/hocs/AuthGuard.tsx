@@ -31,7 +31,7 @@ const LoadingComponent = () => (
 );
 
 // Fonction pour toujours accepter l'authentification (temporaire pour le développement)
-const forcedAuth = true;
+const forcedAuth = false; // DÉSACTIVÉ pour corriger le problème de déconnexion
 
 const AuthGuard = ({ children, locale }: ChildrenType & { locale: Locale }) => {
   const router = useRouter()
@@ -66,8 +66,8 @@ const AuthGuard = ({ children, locale }: ChildrenType & { locale: Locale }) => {
           return;
         }
         
-        // Vérifier si le token d'authentification existe dans les cookies
-        const authToken = Cookies.get('auth_token')
+        // Vérifier si le token d'authentification existe dans localStorage (cohérent avec authService)
+        const authToken = localStorage.getItem('auth_token')
         console.log('AuthGuard: Token trouvé?', !!authToken);
         
         if (authToken) {

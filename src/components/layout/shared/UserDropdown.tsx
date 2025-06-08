@@ -27,6 +27,7 @@ import type { Locale } from '@configs/i18n'
 
 // Hook Imports
 import { useSettings } from '@core/hooks/useSettings'
+import { useAuth } from '@/hooks/useAuth'
 
 // Util Imports
 import { getLocalizedUrl } from '@/utils/i18n'
@@ -53,6 +54,7 @@ const UserDropdown = () => {
   const router = useRouter()
   const { settings } = useSettings()
   const { lang: locale } = useParams()
+  const { logout } = useAuth()
 
   // Effet pour récupérer le nom d'utilisateur des cookies
   useEffect(() => {
@@ -80,7 +82,10 @@ const UserDropdown = () => {
 
   const handleUserLogout = () => {
     try {
-      // Supprimer les cookies d'authentification
+      // Utiliser la fonction de déconnexion du hook useAuth
+      logout()
+      
+      // Supprimer également les cookies
       Cookies.remove('auth_token')
       Cookies.remove('user_name')
       

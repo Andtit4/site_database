@@ -24,10 +24,31 @@ const db = {
   activeUser: null
 }
 
+interface ChatState {
+  contacts: any[]
+  selectedChat: any | null
+  messages: any[]
+}
+
+const initialState: ChatState = {
+  contacts: [],
+  selectedChat: null,
+  messages: []
+}
+
 export const chatSlice = createSlice({
   name: 'chat',
-  initialState: db,
+  initialState,
   reducers: {
+    setContacts: (state, action) => {
+      state.contacts = action.payload
+    },
+    setSelectedChat: (state, action) => {
+      state.selectedChat = action.payload
+    },
+    setMessages: (state, action) => {
+      state.messages = action.payload
+    },
     getActiveUserData: (state, action: PayloadAction<number>) => {
       const activeUser = state.contacts.find(user => user.id === action.payload)
 
@@ -91,6 +112,6 @@ export const chatSlice = createSlice({
   }
 })
 
-export const { getActiveUserData, addNewChat, setUserStatus, sendMsg } = chatSlice.actions
+export const { setContacts, setSelectedChat, setMessages, getActiveUserData, addNewChat, setUserStatus, sendMsg } = chatSlice.actions
 
 export default chatSlice.reducer

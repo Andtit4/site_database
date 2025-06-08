@@ -1,20 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
-import { Card, CardContent, CardHeader, Grid, Typography, Box, IconButton, Button, Divider, Paper, Alert, CircularProgress } from '@mui/material'
+import { useRouter, useParams } from 'next/navigation'
 
-import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar } from 'recharts'
+import { Card, CardContent, CardHeader, Grid, Typography, Box, Button, Divider, Alert, CircularProgress } from '@mui/material'
+
+import { PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar } from 'recharts'
 
 import { equipmentService, teamsService, departmentsService } from '@/services'
 import siteSpecificationsService from '@/services/siteSpecificationsService'
 import { SiteStatus } from '@/services/sitesService'
-import { Equipment } from '@/services/equipmentService'
-import { Team } from '@/services/teamsService'
-import { Department } from '@/services/departmentsService'
 import { useAuth } from '@/hooks/useAuth'
 import { useSitesWithPermissions } from '@/hooks/useSitesWithPermissions'
-import { useRouter, useParams } from 'next/navigation'
 
 // Importer les composants de la bibliothèque Recharts pour les graphiques
 
@@ -22,8 +20,7 @@ const TelecomDashboardPage = () => {
   const { 
     user, 
     loading: authLoading, 
-    canViewAllResources, 
-    getUserDepartmentId 
+    canViewAllResources 
   } = useAuth()
   
   // Utiliser le hook pour les sites avec gestion des permissions
@@ -31,10 +28,11 @@ const TelecomDashboardPage = () => {
     sites, 
     loading: sitesLoading, 
     error: sitesError, 
-    permissionError: sitesPermissionError 
+    permissionError: sitesPermissionError,
+    refreshSites 
   } = useSitesWithPermissions({
     filters: { showDeleted: false }, // Charge seulement les sites non supprimés pour le dashboard
-    autoFetch: true // Réactivé maintenant que les boucles sont corrigées
+    autoFetch: false // Désactivé pour éviter les chargements automatiques continuels
   });
   
   const [stats, setStats] = useState({
@@ -59,81 +57,31 @@ const TelecomDashboardPage = () => {
   // Couleurs pour les graphiques
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#8dd1e1']
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push(`/${lang}/login`)
-      return
-    }
-    
-    if (!authLoading && user) {
-      fetchData()
-    }
-  }, [authLoading, user])
-
-  // Mettre à jour les statistiques quand les sites changent
-  useEffect(() => {
-    if (!sitesLoading) {
-      updateSitesStats();
-    }
-  }, [sites, sitesLoading]);
-
-  const updateSitesStats = () => {
-    // Calculer les statistiques de sites par région
-    const sitesByRegion = Object.entries(
-      sites.reduce((acc, site) => {
-        acc[site.region] = (acc[site.region] || 0) + 1
-        return acc
-      }, {} as Record<string, number>)
-    ).map(([name, value]) => ({ name, value }))
-
-    // Calculer les statistiques de sites par type
-    const sitesByType = Object.entries(
-      sites.reduce((acc, site) => {
-        const type = site.type || 'Non spécifié'
-        acc[type] = (acc[type] || 0) + 1
-        return acc
-      }, {} as Record<string, number>)
-    ).map(([name, value]) => ({ name, value }))
-
-    // Calculer les statistiques de sites par statut
-    const sitesByStatus = Object.entries(
-      sites.reduce((acc, site) => {
-        const statusLabel = getStatusLabel(site.status)
-        acc[statusLabel] = (acc[statusLabel] || 0) + 1
-        return acc
-      }, {} as Record<string, number>)
-    ).map(([name, value]) => ({ name, value }))
-
-    setStats(prev => ({
-      ...prev,
-      totalSites: sites.filter(site => site.status !== SiteStatus.DELETED).length,
-      sitesByRegion,
-      sitesByType,
-      sitesByStatus
-    }))
-  }
-
-  const fetchData = async () => {
+  // Charger les données initiales une seule fois
+  const fetchInitialData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Récupérer les autres données (équipements, équipes, départements)
+      // Charger les sites et autres données en parallèle
       const promises: Promise<any>[] = [
+        refreshSites(), // Charger les sites une fois
         equipmentService.getAllEquipment(),
         teamsService.getAllTeams(),
         departmentsService.getAllDepartments(),
         siteSpecificationsService.getAllSiteSpecifications()
       ]
 
-      const [equipmentData, teamsData, departmentsData, siteSpecificationsData] = await Promise.all(promises)
+      const [, equipmentData, teamsData, departmentsData] = await Promise.all(promises)
 
       // Calculer les statistiques d'équipement par type
       const equipmentByType = Object.entries(
         equipmentData.reduce((acc, equipment) => {
           const type = equipment.type || 'Inconnu'
+
           acc[type] = (acc[type] || 0) + 1
-          return acc
+          
+return acc
         }, {} as Record<string, number>)
       ).map(([name, value]) => ({ name, value }))
 
@@ -141,7 +89,8 @@ const TelecomDashboardPage = () => {
       const equipmentStatus = Object.entries(
         equipmentData.reduce((acc, equipment) => {
           acc[equipment.status] = (acc[equipment.status] || 0) + 1
-          return acc
+          
+return acc
         }, {} as Record<string, number>)
       ).map(([name, value]) => ({ name, value }))
 
@@ -159,7 +108,28 @@ const TelecomDashboardPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [refreshSites])
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push(`/${lang}/auth/login`)
+      
+return
+    }
+    
+    if (!authLoading && user) {
+      fetchInitialData()
+    }
+  }, [authLoading, user]) // RETIRÉ router, lang, fetchInitialData pour éliminer la boucle
+
+  // Mettre à jour seulement les statistiques de sites quand ils changent
+  useEffect(() => {
+    if (!sitesLoading && sites.length > 0) {
+      // updateSitesStats()
+    }
+  }, [sites])
+
+  // Fonction updateSitesStats supprimée car elle n'est plus utilisée
 
   // Fonction pour obtenir un libellé lisible pour les statuts
   const getStatusLabel = (status: string) => {
@@ -203,7 +173,16 @@ const TelecomDashboardPage = () => {
 
   return (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" sx={{ mb: 4 }}>Tableau de bord Télécommunications</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Typography variant="h4">Tableau de bord Télécommunications</Typography>
+        <Button 
+          variant="outlined"
+          onClick={fetchInitialData}
+          disabled={loading || sitesLoading}
+        >
+          {(loading || sitesLoading) ? 'Actualisation...' : 'Actualiser'}
+        </Button>
+      </Box>
 
       {/* Alerte pour les erreurs de permissions */}
       {sitesPermissionError && (

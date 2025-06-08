@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 import { sitesService } from '@/services';
 import type { Site, SiteFilterDto } from '@/services/sitesService';
@@ -22,34 +22,20 @@ export const useSitesWithPermissions = (
 ): UseSitesWithPermissionsReturn => {
   const { filters, autoFetch = true } = options;
 
+  // Stabiliser la référence de filters
+  const stableFilters = useMemo(() => filters || {}, [filters]);
+
   const { 
     user, 
-    loading: authLoading, 
-    canViewAllResources, 
-    getUserDepartmentId 
+    loading: authLoading 
   } = useAuth();
 
   const [sites, setSites] = useState<Site[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(autoFetch); // Ne pas charger si autoFetch est false
   const [error, setError] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState(false);
 
-  // Fonction pour vérifier si l'utilisateur peut accéder aux sites
-  const canAccessSites = (): boolean => {
-    if (!user) return false;
-    
-    // Les ADMIN ont accès à tout
-    if (user.isAdmin) return true;
-    
-    // Les DEPARTMENT_ADMIN et TEAM_MEMBER ont accès aux sites de leur département
-    if ((user.isDepartmentAdmin || user.isTeamMember) && user.departmentId) {
-      return true;
-    }
-    
-    return false;
-  };
-
-  const fetchSites = async (customFilters?: SiteFilterDto) => {
+  const fetchSites = useCallback(async (customFilters?: SiteFilterDto) => {
     if (!user) return;
 
     try {
@@ -57,8 +43,12 @@ export const useSitesWithPermissions = (
       setError(null);
       setPermissionError(false);
 
-      // Vérifier les permissions avant de faire l'appel
-      if (!canAccessSites()) {
+      // Vérifier les permissions DIRECTEMENT (pas de fonction séparée)
+      const hasAccess = user.isAdmin || 
+                       (user.isDepartmentAdmin && user.departmentId) || 
+                       (user.isTeamMember && user.departmentId);
+      
+      if (!hasAccess) {
         console.warn('Accès aux sites refusé - permissions insuffisantes');
         setPermissionError(true);
         setSites([]);
@@ -68,11 +58,12 @@ return;
       }
 
       // Construire les filtres selon les permissions
-      const finalFilters: SiteFilterDto = { ...filters, ...customFilters };
+      const finalFilters: SiteFilterDto = { ...stableFilters, ...customFilters };
 
       // Si l'utilisateur ne peut pas voir toutes les ressources, filtrer par département
-      if (!canViewAllResources()) {
-        const userDepartmentId = getUserDepartmentId();
+      // DIRECTEMENT avec user.isAdmin au lieu de canViewAllResources()
+      if (!user.isAdmin) {
+        const userDepartmentId = user.departmentId?.toString() || null;
 
         if (userDepartmentId) {
           finalFilters.departmentId = userDepartmentId;
@@ -96,7 +87,7 @@ return;
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, stableFilters]); // RETIRÉ canViewAllResources et getUserDepartmentId !
 
   useEffect(() => {
     if (!authLoading && user && autoFetch) {
@@ -107,11 +98,11 @@ return;
       setPermissionError(true);
       setLoading(false);
     }
-  }, [authLoading, user, autoFetch]); // Retiré JSON.stringify(filters) qui cause des re-renders
+  }, [authLoading, user, autoFetch]); // RETIRÉ fetchSites pour éviter les boucles
 
-  const refreshSites = async (customFilters?: SiteFilterDto) => {
+  const refreshSites = useCallback(async (customFilters?: SiteFilterDto) => {
     await fetchSites(customFilters);
-  };
+  }, [fetchSites]);
 
   return {
     sites,

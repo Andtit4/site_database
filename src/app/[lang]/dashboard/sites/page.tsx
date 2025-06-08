@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 
 import { useRouter, useParams } from 'next/navigation'
 
@@ -65,7 +65,6 @@ const SitesPage = () => {
     getUserDepartmentId 
   } = useAuth()
   
-  const [filteredSites, setFilteredSites] = useState<Site[]>([])
   const [error, setError] = useState<string | null>(null)
   const [openDialog, setOpenDialog] = useState(false)
   const [currentSite, setCurrentSite] = useState<Site | null>(null)
@@ -94,7 +93,7 @@ const SitesPage = () => {
     refreshSites 
   } = useSitesWithPermissions({
     filters: { showDeleted },
-    autoFetch: true
+    autoFetch: false
   });
 
   const [formData, setFormData] = useState<CreateSiteDto>({
@@ -123,30 +122,29 @@ const SitesPage = () => {
     }
   };
 
+  // Chargement initial des données une seule fois
   useEffect(() => {
     if (!authLoading && user) {
       fetchSpecifications()
+      refreshSites({ showDeleted })
     }
   }, [authLoading, user])
 
-  // Rafraîchir les sites quand showDeleted change
+  // Rafraîchir SEULEMENT les sites quand showDeleted change (pas sur chaque rendu)
   useEffect(() => {
     if (!authLoading && user) {
       refreshSites({ showDeleted });
     }
-  }, [showDeleted, authLoading, user]) // Retiré refreshSites des dépendances
+  }, [showDeleted])
 
+  // Event listeners - SIMPLIFIÉ pour éviter les re-renders
   useEffect(() => {
-    // Ajouter un écouteur d'événement pour ouvrir le dialogue d'ajout depuis le menu
     const handleOpenAddDialog = () => {
-      if (canCreate('site')) {
-        handleOpenDialog();
-      }
+      handleOpenDialog();
     };
 
-    // Ajouter un écouteur d'événement pour ouvrir le dialogue d'édition depuis la page de détails
     const handleOpenEditDialog = (event: CustomEvent) => {
-      if (event.detail && event.detail.site && canEdit('site')) {
+      if (event.detail && event.detail.site) {
         handleOpenDialog(event.detail.site);
       }
     };
@@ -154,55 +152,32 @@ const SitesPage = () => {
     window.addEventListener('openAddSiteDialog', handleOpenAddDialog);
     window.addEventListener('openSiteEditDialog', handleOpenEditDialog as EventListener);
     
-    // Nettoyer les écouteurs d'événements lors du démontage du composant
     return () => {
       window.removeEventListener('openAddSiteDialog', handleOpenAddDialog);
       window.removeEventListener('openSiteEditDialog', handleOpenEditDialog as EventListener);
     };
-  }, [canCreate, canEdit])
-
-  // Mettre à jour le département par défaut dans le formulaire
-  useEffect(() => {
-    const userDepartmentId = getUserDepartmentId()
-
-    if (userDepartmentId && !canViewAllResources()) {
-      setFormData(prev => ({
-        ...prev,
-        departmentId: userDepartmentId
-      }))
-    }
-  }, [user, getUserDepartmentId, canViewAllResources])
+  }, []) // AUCUNE dépendance pour éviter les boucles
 
   // Lorsque le type de site change, récupérer les spécifications correspondantes
   useEffect(() => {
-    if (formData.type) {
+    if (formData.type && specifications.length > 0) {
       const spec = specifications.find(s => s.siteType === formData.type);
 
       setCurrentSpecification(spec || null);
       
       // Réinitialiser les spécifications lorsque le type change
       if (formData.specifications && Object.keys(formData.specifications).length > 0) {
-        setFormData({
-          ...formData,
+        setFormData(prev => ({
+          ...prev,
           specifications: {}
-        });
+        }));
       }
     }
-  }, [formData.type, specifications]);
+  }, [formData.type, specifications]) // Garder ces dépendances car nécessaires
 
-  // Appliquer les filtres lors des changements
-  useEffect(() => {
-    applyFilters(sites);
-  }, [filterValues, sites]);
-
-  // Gérer le changement de page
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    setPage(value);
-  };
-
-  // Fonction pour filtrer les sites
-  const applyFilters = (sitesToFilter: Site[]) => {
-    let result = [...sitesToFilter];
+  // Utiliser useMemo pour calculer les sites filtrés au lieu d'un useEffect
+  const filteredSites = useMemo(() => {
+    let result = [...sites];
     
     // Filtrer par recherche (nom, id, type)
     if (filterValues.search) {
@@ -230,8 +205,17 @@ const SitesPage = () => {
       result = result.filter(site => site.type === filterValues.type);
     }
     
-    setFilteredSites(result);
-    setPage(1); // Réinitialiser à la première page après filtrage
+    return result;
+  }, [sites, filterValues]);
+
+  // Réinitialiser la page quand les filtres changent
+  useEffect(() => {
+    setPage(1);
+  }, [filterValues]);
+
+  // Gérer le changement de page
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
   };
 
   // Gérer les changements dans les filtres
@@ -260,6 +244,14 @@ const SitesPage = () => {
       })
     } else {
       setCurrentSite(null)
+      
+      // Définir le département par défaut DIRECTEMENT ici
+      const userDepartmentId = getUserDepartmentId()
+
+      const defaultDepartmentId = (userDepartmentId && !canViewAllResources()) 
+        ? userDepartmentId 
+        : undefined
+      
       setFormData({
         id: '',
         name: '',
@@ -269,7 +261,7 @@ const SitesPage = () => {
         status: SiteStatus.ACTIVE,
         type: SiteTypes.TOUR,
         specifications: {},
-        departmentId: getUserDepartmentId() || undefined
+        departmentId: defaultDepartmentId
       })
     }
 
@@ -367,7 +359,8 @@ return
       }
 
       handleCloseDialog()
-      refreshSites() // Recharger la liste
+
+      // refreshSites() // Ne plus recharger automatiquement - l'utilisateur peut cliquer sur "Actualiser"
     } catch (err: any) {
       console.error('Erreur lors de l\'enregistrement du site:', err)
 
@@ -392,8 +385,8 @@ return
     try {
       await sitesService.deleteSite(siteToDelete);
 
-      // Actualiser la liste des sites après la suppression
-      await refreshSites();
+      // Ne plus actualiser automatiquement - l'utilisateur peut cliquer sur "Actualiser"
+      // await refreshSites();
 
       // Fermer la boîte de dialogue
       handleCloseDeleteDialog();
@@ -410,8 +403,8 @@ return
       // Restaurer le site en changeant son statut à ACTIVE
       await sitesService.updateSite(id, { status: SiteStatus.ACTIVE });
 
-      // Actualiser la liste des sites
-      await refreshSites();
+      // Ne plus actualiser automatiquement - l'utilisateur peut cliquer sur "Actualiser"
+      // await refreshSites();
     } catch (err: any) {
       console.error('Erreur lors de la restauration du site:', err);
 
@@ -499,6 +492,13 @@ return null
             }
             label="Afficher les sites supprimés"
           />
+          <Button 
+            variant="outlined" 
+            onClick={() => refreshSites({ showDeleted })}
+            disabled={loading}
+          >
+            {loading ? 'Actualisation...' : 'Actualiser'}
+          </Button>
           {canCreate('site') && (
             <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
               Ajouter un site

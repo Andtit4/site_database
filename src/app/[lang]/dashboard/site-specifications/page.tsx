@@ -43,6 +43,8 @@ import siteSpecificationsService, {
   SiteTypes,
   ColumnTypes
 } from '@/services/siteSpecificationsService'
+import { useAuth } from '@/hooks/useAuth'
+import { useRouter, useParams } from 'next/navigation'
 
 
 // Fonction pour formater les noms des types de sites
@@ -78,9 +80,24 @@ const formatDate = (date: Date): string => {
 };
 
 const SiteSpecificationsPage = () => {
+  const { user, loading: authLoading, canViewSiteSpecifications } = useAuth()
+  const router = useRouter()
+  const params = useParams()
+  const lang = params.lang || 'fr'
+
   const [specifications, setSpecifications] = useState<SiteSpecification[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Vérifier les permissions
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (!canViewSiteSpecifications()) {
+        router.push(`/${lang}/dashboard/telecom-dashboard`)
+        return
+      }
+    }
+  }, [authLoading, user, canViewSiteSpecifications, router, lang])
   const [openDialog, setOpenDialog] = useState(false)
   const [currentSpecification, setCurrentSpecification] = useState<SiteSpecification | null>(null)
 

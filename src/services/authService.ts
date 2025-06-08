@@ -1,5 +1,3 @@
-import Cookies from 'js-cookie';
-
 import api from './api';
 
 export interface User {
@@ -14,7 +12,7 @@ export interface User {
   departmentId?: number;
   teamId?: number;
   hasDepartmentRights: boolean;
-  managedEquipmentTypes: string[];
+  managedEquipmentTypes: string[] | null;
   isActive: boolean;
   lastLogin?: string | Date;
   createdAt: string | Date;

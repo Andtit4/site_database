@@ -46,7 +46,12 @@ const VerticalMenu = ({ dictionary, scrollMenu }: { dictionary: Awaited<ReturnTy
   const theme = useTheme()
   const verticalNavOptions = useVerticalNav()
   const params = useParams()
-  const { user } = useAuth()
+  const { 
+    user, 
+    canViewEquipmentSpecifications, 
+    canViewSiteSpecifications,
+    canManageUsers 
+  } = useAuth()
 
   // Vars
   const { transitionDuration } = verticalNavOptions
@@ -116,17 +121,25 @@ const VerticalMenu = ({ dictionary, scrollMenu }: { dictionary: Awaited<ReturnTy
         </MenuItem>
 
         {/* Spécifications */}
-        <SubMenu 
-          label="Spécifications" 
-          icon={<i className='tabler-list-details' />}
-        >
-          <MenuItem href={`/${locale}/dashboard/specifications`}>Équipements</MenuItem>
-          <MenuItem href={`/${locale}/dashboard/site-specifications`}>Sites</MenuItem>
-          <MenuItem href={`/${locale}/dashboard/departments-specifications`}>Par Département</MenuItem>
-        </SubMenu>
+        {(canViewEquipmentSpecifications() || canViewSiteSpecifications()) && (
+          <SubMenu 
+            label="Spécifications" 
+            icon={<i className='tabler-list-details' />}
+          >
+            {canViewEquipmentSpecifications() && (
+              <MenuItem href={`/${locale}/dashboard/specifications`}>Équipements</MenuItem>
+            )}
+            {canViewSiteSpecifications() && (
+              <MenuItem href={`/${locale}/dashboard/site-specifications`}>Sites</MenuItem>
+            )}
+            {canViewSiteSpecifications() && (
+              <MenuItem href={`/${locale}/dashboard/departments-specifications`}>Par Département</MenuItem>
+            )}
+          </SubMenu>
+        )}
 
-        {/* Menu de gestion des utilisateurs - uniquement visible pour les admins */}
-        {user?.isAdmin && (
+        {/* Menu de gestion des utilisateurs - uniquement visible pour les admins globaux */}
+        {canManageUsers() && (
           <MenuItem 
             href={`/${locale}/dashboard/users`}
             icon={<i className='tabler-user-settings' />}
