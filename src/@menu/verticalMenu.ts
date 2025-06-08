@@ -1,33 +1,33 @@
-import { UserDataType } from '@/contexts/AuthContext'
-import { NavItemsType } from '@/layouts/navigationTypes'
+import type { UserDataType } from '@/contexts/AuthContext'
+import type { NavItemsType } from '@/layouts/navigationTypes'
 
 // Crée la structure de menu basée sur les rôles utilisateur
-const navigation = (): NavItemsType => {
-  return [
+const navigation = (userData?: UserDataType): NavItemsType => {
+  const menuItems: NavItemsType = [
     {
       title: 'Tableau de bord',
       icon: 'ri-dashboard-line',
-      path: '/telecom-dashboard'
+      path: '/dashboard/telecom-dashboard'
     },
     {
       title: 'Gestion des sites',
       icon: 'ri-map-pin-line',
-      path: '/sites'
+      path: '/dashboard/sites'
     },
     {
       title: 'Équipements',
       icon: 'ri-device-line',
-      path: '/equipment'
+      path: '/dashboard/equipment'
     },
     {
       title: 'Équipes',
       icon: 'ri-team-line',
-      path: '/teams'
+      path: '/dashboard/teams'
     },
     {
       title: 'Départements',
       icon: 'ri-building-line',
-      path: '/departments'
+      path: '/dashboard/departments'
     },
     {
       title: 'Spécifications',
@@ -35,15 +35,26 @@ const navigation = (): NavItemsType => {
       children: [
         {
           title: 'Spécifications d\'équipements',
-          path: '/specifications'
+          path: '/dashboard/specifications'
         },
         {
           title: 'Spécifications de sites',
-          path: '/site-specifications'
+          path: '/dashboard/site-specifications'
         }
       ]
     }
   ]
+
+  // Ajouter le menu de gestion des utilisateurs uniquement pour les admins
+  if (userData?.isAdmin) {
+    menuItems.push({
+      title: 'Gestion des utilisateurs',
+      icon: 'ri-user-settings-line',
+      path: '/dashboard/users'
+    })
+  }
+
+  return menuItems
 }
 
 export default navigation 

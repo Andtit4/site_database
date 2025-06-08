@@ -140,7 +140,7 @@ const UserDropdown = () => {
                     </div>
                   </div>
                   <Divider className='mlb-1' />
-                  <MenuItem className='mli-2 gap-3' onClick={e => handleDropdownClose(e, '/telecom-dashboard')}>
+                  <MenuItem className='mli-2 gap-3' onClick={e => handleDropdownClose(e, '/dashboard/telecom-dashboard')}>
                     <i className='tabler-dashboard' />
                     <Typography color='text.primary'>Tableau de bord</Typography>
                   </MenuItem>

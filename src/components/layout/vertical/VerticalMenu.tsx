@@ -1,3 +1,5 @@
+'use client'
+
 // Next Imports
 import { useParams } from 'next/navigation'
 
@@ -16,6 +18,7 @@ import { Menu, SubMenu, MenuItem } from '@menu/vertical-menu'
 
 // Hook Imports
 import useVerticalNav from '@menu/hooks/useVerticalNav'
+import { useAuth } from '@/hooks/useAuth'
 
 // Styled Component Imports
 import StyledVerticalNavExpandIcon from '@menu/styles/vertical/StyledVerticalNavExpandIcon'
@@ -32,34 +35,30 @@ type RenderExpandIconProps = {
   transitionDuration?: VerticalMenuContextProps['transitionDuration']
 }
 
-type Props = {
-  dictionary: Awaited<ReturnType<typeof getDictionary>>
-  scrollMenu: (container: any, isPerfectScrollbar: boolean) => void
-}
-
 const RenderExpandIcon = ({ open, transitionDuration }: RenderExpandIconProps) => (
   <StyledVerticalNavExpandIcon open={open} transitionDuration={transitionDuration}>
     <i className='tabler-chevron-right' />
   </StyledVerticalNavExpandIcon>
 )
 
-const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
+const VerticalMenu = ({ dictionary, scrollMenu }: { dictionary: Awaited<ReturnType<typeof getDictionary>>; scrollMenu: (container: any, isPerfectScrollbar: boolean) => void }) => {
   // Hooks
   const theme = useTheme()
   const verticalNavOptions = useVerticalNav()
   const params = useParams()
+  const { user } = useAuth()
 
   // Vars
-  const { isBreakpointReached, transitionDuration } = verticalNavOptions
+  const { transitionDuration } = verticalNavOptions
   const { lang: locale } = params
 
-  const ScrollWrapper = isBreakpointReached ? 'div' : PerfectScrollbar
+  const ScrollWrapper = verticalNavOptions.isBreakpointReached ? 'div' : PerfectScrollbar
 
   return (
     // eslint-disable-next-line lines-around-comment
     /* Custom scrollbar instead of browser scroll, remove if you want browser scroll only */
     <ScrollWrapper
-      {...(isBreakpointReached
+      {...(verticalNavOptions.isBreakpointReached
         ? {
             className: 'bs-full overflow-y-auto overflow-x-hidden',
             onScroll: container => scrollMenu(container, false)
@@ -78,7 +77,7 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
       >
         {/* Dashboard */}
         <MenuItem 
-          href={`/${locale}/telecom-dashboard`}
+          href={`/${locale}/dashboard/telecom-dashboard`}
           icon={<i className='tabler-dashboard' />}
         >
           Tableau de bord
@@ -86,7 +85,7 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
         
         {/* Gestion des sites */}
         <MenuItem 
-          href={`/${locale}/sites`}
+          href={`/${locale}/dashboard/sites`}
           icon={<i className='tabler-building-antenna' />}
         >
           Sites
@@ -94,7 +93,7 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
 
         {/* Gestion des équipements */}
         <MenuItem 
-          href={`/${locale}/equipment`}
+          href={`/${locale}/dashboard/equipment`}
           icon={<i className='tabler-device-mobile' />}
         >
           Équipements
@@ -102,7 +101,7 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
 
         {/* Gestion des équipes */}
         <MenuItem 
-          href={`/${locale}/teams`}
+          href={`/${locale}/dashboard/teams`}
           icon={<i className='tabler-users-group' />}
         >
           Équipes
@@ -110,7 +109,7 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
 
         {/* Gestion des départements */}
         <MenuItem 
-          href={`/${locale}/departments`}
+          href={`/${locale}/dashboard/departments`}
           icon={<i className='tabler-building' />}
         >
           Départements
@@ -121,10 +120,20 @@ const VerticalMenu = ({ dictionary, scrollMenu }: Props) => {
           label="Spécifications" 
           icon={<i className='tabler-list-details' />}
         >
-          <MenuItem href={`/${locale}/specifications`}>Équipements</MenuItem>
-          <MenuItem href={`/${locale}/site-specifications`}>Sites</MenuItem>
-          <MenuItem href={`/${locale}/departments-specifications`}>Par Département</MenuItem>
+          <MenuItem href={`/${locale}/dashboard/specifications`}>Équipements</MenuItem>
+          <MenuItem href={`/${locale}/dashboard/site-specifications`}>Sites</MenuItem>
+          <MenuItem href={`/${locale}/dashboard/departments-specifications`}>Par Département</MenuItem>
         </SubMenu>
+
+        {/* Menu de gestion des utilisateurs - uniquement visible pour les admins */}
+        {user?.isAdmin && (
+          <MenuItem 
+            href={`/${locale}/dashboard/users`}
+            icon={<i className='tabler-user-settings' />}
+          >
+            Gestion des utilisateurs
+          </MenuItem>
+        )}
       </Menu>
     </ScrollWrapper>
   )

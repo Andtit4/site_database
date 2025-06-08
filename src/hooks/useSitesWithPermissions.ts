@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { sitesService } from '@/services';
 import type { Site, SiteFilterDto } from '@/services/sitesService';
 import { useAuth } from './useAuth';
@@ -20,6 +21,7 @@ export const useSitesWithPermissions = (
   options: UseSitesWithPermissionsOptions = {}
 ): UseSitesWithPermissionsReturn => {
   const { filters, autoFetch = true } = options;
+
   const { 
     user, 
     loading: authLoading, 
@@ -61,27 +63,31 @@ export const useSitesWithPermissions = (
         setPermissionError(true);
         setSites([]);
         setLoading(false);
-        return;
+        
+return;
       }
 
       // Construire les filtres selon les permissions
-      let finalFilters: SiteFilterDto = { ...filters, ...customFilters };
+      const finalFilters: SiteFilterDto = { ...filters, ...customFilters };
 
       // Si l'utilisateur ne peut pas voir toutes les ressources, filtrer par département
       if (!canViewAllResources()) {
         const userDepartmentId = getUserDepartmentId();
+
         if (userDepartmentId) {
           finalFilters.departmentId = userDepartmentId;
         } else {
           // Si l'utilisateur n'a pas de département, ne charger aucun site
           setSites([]);
           setLoading(false);
-          return;
+          
+return;
         }
       }
 
       // Le service sitesService gère maintenant les permissions en interne
       const data = await sitesService.getAllSites(finalFilters);
+
       setSites(data);
       
     } catch (err: any) {
@@ -101,7 +107,7 @@ export const useSitesWithPermissions = (
       setPermissionError(true);
       setLoading(false);
     }
-  }, [authLoading, user, autoFetch, JSON.stringify(filters)]);
+  }, [authLoading, user, autoFetch]); // Retiré JSON.stringify(filters) qui cause des re-renders
 
   const refreshSites = async (customFilters?: SiteFilterDto) => {
     await fetchSites(customFilters);

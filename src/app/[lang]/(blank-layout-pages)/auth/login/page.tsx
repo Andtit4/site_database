@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 
 import { useRouter, useParams } from 'next/navigation'
 
-import Cookies from 'js-cookie'
 import {
   Box,
   Button,
@@ -18,7 +17,7 @@ import {
   CircularProgress
 } from '@mui/material'
 
-import api from '@/services/api'
+import authService from '@/services/authService'
 
 const LoginPage = () => {
   const router = useRouter()
@@ -31,12 +30,16 @@ const LoginPage = () => {
   
   // Vérifier si l'utilisateur est déjà connecté
   useEffect(() => {
-    const token = Cookies.get('auth_token')
-
-    if (token) {
+    console.log('LoginPage: Vérification de l\'authentification existante');
+    
+    const isAuthenticated = authService.isAuthenticated()
+    
+    if (isAuthenticated) {
+      console.log('LoginPage: Utilisateur déjà authentifié, redirection');
       const lang = params.lang || 'fr'
-
-      router.push(`/${lang}/telecom-dashboard`)
+      router.push(`/${lang}/dashboard/telecom-dashboard`)
+    } else {
+      console.log('LoginPage: Utilisateur non authentifié');
     }
   }, [params.lang, router])
 
@@ -45,56 +48,39 @@ const LoginPage = () => {
     
     if (!username || !password) {
       setError('Veuillez remplir tous les champs')
-      
-return
+      return
     }
 
     try {
       setLoading(true)
       setError(null)
       
-      console.log('Tentative de connexion avec l\'API backend...');
-   
-      try {
-        // Essayer de se connecter au backend API
-        const response = await api.post('/auth/login', { username, password });
-        
-        if (response.data && response.data.accessToken) {
-          // Enregistrer le token JWT retourné par l'API
-		  console.log('Token reçu:', response.data.accessToken);
-          const token = response.data.accessToken;
-
-          Cookies.set('token', token, { expires: 1 });
-          Cookies.set('user_name', username, { expires: 1 });
-          
-          console.log('Connexion API réussie, token reçu');
-          
-          // Rediriger vers le tableau de bord
-          const lang = params.lang || 'fr';
-
-          router.push(`/${lang}/telecom-dashboard`);
-        } else {
-          throw new Error('Format de réponse invalide');
-        }
-      } catch (apiError: any) {
-        console.warn('Erreur API, utilisation du mode de secours:', apiError.message);
-        
-        // En cas d'erreur API, utiliser un token de secours pour le développement
-       /*  const fallbackToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6ImFkbWluIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
-        
-        Cookies.set('auth_token', fallbackToken, { expires: 1 });
-        Cookies.set('user_name', username, { expires: 1 });
-        
-        console.log('Mode secours activé, token de secours utilisé'); */
-        
-        // Rediriger vers le tableau de bord même en mode secours
-        const lang = params.lang || 'fr';
-
-        router.push(`/${lang}/telecom-dashboard`);
-      }
+      console.log('LoginPage: Tentative de connexion pour', username);
+      
+      // Utiliser le service d'authentification
+      const { user, token } = await authService.login({ username, password });
+      
+      console.log('LoginPage: Connexion réussie pour', user.username);
+      console.log('LoginPage: Token reçu:', token ? 'Oui' : 'Non');
+      
+      // Rediriger vers le tableau de bord
+      const lang = params.lang || 'fr';
+      console.log('LoginPage: Redirection vers', `/${lang}/dashboard/telecom-dashboard`);
+      
+      router.push(`/${lang}/dashboard/telecom-dashboard`);
+      
     } catch (err: any) {
-      console.error('Erreur générale de connexion:', err);
-      setError(err.message || 'Erreur lors de la connexion. Veuillez réessayer.');
+      console.error('LoginPage: Erreur de connexion:', err.message);
+      
+      if (err.response?.status === 401) {
+        setError('Nom d\'utilisateur ou mot de passe incorrect');
+      } else if (err.code === 'ECONNABORTED') {
+        setError('Délai d\'attente dépassé. Vérifiez votre connexion réseau.');
+      } else if (err.message?.includes('ECONNREFUSED')) {
+        setError('Impossible de se connecter au serveur. Vérifiez que le backend est démarré.');
+      } else {
+        setError(err.message || 'Erreur lors de la connexion. Veuillez réessayer.');
+      }
     } finally {
       setLoading(false);
     }
@@ -173,6 +159,15 @@ return
               {loading ? <CircularProgress size={24} /> : 'Se connecter'}
             </Button>
           </form>
+          
+          {/* Informations de debug en mode développement */}
+          {process.env.NODE_ENV === 'development' && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Mode développement - Credentials par défaut : admin/password
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
     </Box>

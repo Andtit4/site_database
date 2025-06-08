@@ -1,106 +1,162 @@
-import { useEffect, useState } from 'react';
-import authService, { User } from '@/services/authService';
-import permissionsService, { Permission } from '@/services/permissionsService';
+'use client'
 
-interface UseAuthReturn {
-  user: User | null;
-  loading: boolean;
-  isAuthenticated: boolean;
-  hasPermission: (permission: Permission) => boolean;
-  canViewAllResources: () => boolean;
-  canViewSpecifications: () => boolean;
-  canCreate: (resourceType: 'site' | 'team' | 'equipment') => boolean;
-  canEdit: (resourceType: 'site' | 'team' | 'equipment') => boolean;
-  canDelete: (resourceType: 'site' | 'team' | 'equipment') => boolean;
-  getUserDepartmentId: () => string | null;
-  getUserTeamId: () => string | null;
-  canAccessDepartmentResource: (resourceDepartmentId: string | null) => boolean;
-  refreshUser: () => Promise<void>;
-}
+import { useState, useEffect } from 'react'
 
-export const useAuth = (): UseAuthReturn => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+import authService, { type User } from '@/services/authService'
 
-  const fetchCurrentUser = async () => {
-    try {
-      // D'abord essayer de récupérer depuis localStorage
-      const userString = localStorage.getItem('user');
-      if (userString) {
-        const cachedUser = JSON.parse(userString);
-        setUser(cachedUser);
-      }
-      
-      // Puis vérifier avec le serveur
-      const currentUser = await authService.getCurrentUser();
-      if (currentUser) {
-        setUser(currentUser);
-        // Mettre à jour localStorage
-        localStorage.setItem('user', JSON.stringify(currentUser));
-      } else {
-        // Si pas d'utilisateur du serveur, nettoyer
-        setUser(null);
-        localStorage.removeItem('user');
-      }
-    } catch (error) {
-      console.error('Erreur lors de la récupération de l\'utilisateur actuel:', error);
-      setUser(null);
-      localStorage.removeItem('user');
-    } finally {
-      setLoading(false);
-    }
-  };
+export const useAuth = () => {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchCurrentUser();
-  }, []);
+    console.log('useAuth: Initialisation du hook')
+    initializeAuth()
+  }, [])
 
-  const refreshUser = async () => {
-    setLoading(true);
-    await fetchCurrentUser();
-  };
+  const initializeAuth = async () => {
+    console.log('useAuth: Début de l\'initialisation auth')
+    
+    try {
+      // D'abord, vérifier s'il y a un token
+      const hasToken = authService.isAuthenticated()
 
-  const hasPermission = (permission: Permission): boolean => {
-    return permissionsService.hasPermission(user, permission);
-  };
+      console.log('useAuth: Token trouvé:', hasToken)
+      
+      if (!hasToken) {
+        console.log('useAuth: Aucun token, utilisateur non connecté')
+        setUser(null)
+        setLoading(false)
 
+        return
+      }
+
+      // Utiliser d'abord le cache si disponible pour éviter un écran de chargement
+      const cachedUser = authService.getCachedUser()
+
+      if (cachedUser) {
+        console.log('useAuth: Utilisateur trouvé en cache:', cachedUser.username)
+        setUser(cachedUser)
+      }
+
+      // Puis vérifier avec le serveur en arrière-plan
+      console.log('useAuth: Vérification avec le serveur...')
+      const currentUser = await authService.getCurrentUser()
+      
+      if (currentUser) {
+        console.log('useAuth: Utilisateur confirmé par le serveur:', currentUser.username)
+        setUser(currentUser)
+      } else {
+        console.log('useAuth: Aucun utilisateur retourné par le serveur')
+        setUser(null)
+      }
+    } catch (error: any) {
+      console.error('useAuth: Erreur lors de l\'initialisation:', error.message)
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const login = async (credentials: { username: string; password: string }) => {
+    try {
+      const { user: loggedInUser } = await authService.login(credentials)
+
+      setUser(loggedInUser)
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const logout = () => {
+    authService.logout()
+    setUser(null)
+  }
+
+  // Fonctions de permissions
   const canViewAllResources = (): boolean => {
-    return permissionsService.canViewAllResources(user);
-  };
+    if (!user) return false
+    return user.isAdmin
+  }
 
   const canViewSpecifications = (): boolean => {
-    return permissionsService.canViewSpecifications(user);
-  };
+    if (!user) return false
+    return user.isAdmin || user.isDepartmentAdmin
+  }
 
   const canCreate = (resourceType: 'site' | 'team' | 'equipment'): boolean => {
-    return permissionsService.canCreate(user, resourceType);
-  };
+    if (!user) return false
+    
+    switch (resourceType) {
+      case 'site':
+        return user.isAdmin || user.isDepartmentAdmin
+      case 'team':
+        return user.isAdmin
+      case 'equipment':
+        return user.isAdmin || user.isDepartmentAdmin || user.isTeamMember
+      default:
+        return false
+    }
+  }
 
   const canEdit = (resourceType: 'site' | 'team' | 'equipment'): boolean => {
-    return permissionsService.canEdit(user, resourceType);
-  };
+    if (!user) return false
+    
+    switch (resourceType) {
+      case 'site':
+        return user.isAdmin || user.isDepartmentAdmin
+      case 'team':
+        return user.isAdmin
+      case 'equipment':
+        return user.isAdmin || user.isDepartmentAdmin || user.isTeamMember
+      default:
+        return false
+    }
+  }
 
   const canDelete = (resourceType: 'site' | 'team' | 'equipment'): boolean => {
-    return permissionsService.canDelete(user, resourceType);
-  };
+    if (!user) return false
+    
+    switch (resourceType) {
+      case 'site':
+        return user.isAdmin
+      case 'team':
+        return user.isAdmin
+      case 'equipment':
+        return user.isAdmin || user.isDepartmentAdmin
+      default:
+        return false
+    }
+  }
 
   const getUserDepartmentId = (): string | null => {
-    return permissionsService.getUserDepartmentId(user);
-  };
+    return user?.departmentId?.toString() || null
+  }
 
   const getUserTeamId = (): string | null => {
-    return permissionsService.getUserTeamId(user);
-  };
+    return user?.teamId?.toString() || null
+  }
 
   const canAccessDepartmentResource = (resourceDepartmentId: string | null): boolean => {
-    return permissionsService.canAccessDepartmentResource(user, resourceDepartmentId);
-  };
+    if (!user) return false
+    
+    // Les admins ont accès à tout
+    if (user.isAdmin) return true
+    
+    // Si pas de département spécifié pour la ressource, accès autorisé
+    if (!resourceDepartmentId) return true
+    
+    // Vérifier si l'utilisateur a accès au département de la ressource
+    return user.departmentId?.toString() === resourceDepartmentId
+  }
 
   return {
     user,
     loading,
+    login,
+    logout,
+    // Propriétés dérivées
     isAuthenticated: !!user,
-    hasPermission,
+    // Fonctions de permissions
     canViewAllResources,
     canViewSpecifications,
     canCreate,
@@ -108,7 +164,8 @@ export const useAuth = (): UseAuthReturn => {
     canDelete,
     getUserDepartmentId,
     getUserTeamId,
-    canAccessDepartmentResource,
-    refreshUser,
-  };
-}; 
+    canAccessDepartmentResource
+  }
+}
+
+export default useAuth 

@@ -2,146 +2,229 @@ import Cookies from 'js-cookie';
 
 import api from './api';
 
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  isAdmin: boolean;
+  isDepartmentAdmin: boolean;
+  isTeamMember: boolean;
+  departmentId?: number;
+  teamId?: number;
+  hasDepartmentRights: boolean;
+  managedEquipmentTypes: string[];
+  isActive: boolean;
+  lastLogin?: string | Date;
+  createdAt: string | Date;
+}
+
 export interface LoginCredentials {
   username: string;
   password: string;
 }
 
-export interface User {
-  id: string;
-  username: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  isAdmin: boolean;
-  isDepartmentAdmin: boolean;
-  isTeamMember: boolean;
-  isActive: boolean;
-  isDeleted: boolean;
-  hasDepartmentRights: boolean;
-  managedEquipmentTypes?: string[];
-  lastLogin?: Date;
-  departmentId?: string;
-  teamId?: string;
-  createdAt: Date;
-  updatedAt: Date;
+export interface LoginResponse {
+  user: User;
+  token: string;
 }
 
-export interface RegisterUserDto {
-  username: string;
-  password: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  isAdmin?: boolean;
-  isDepartmentAdmin?: boolean;
-  isTeamMember?: boolean;
-  hasDepartmentRights?: boolean;
-  managedEquipmentTypes?: string[];
-  departmentId?: string;
-  teamId?: string;
-}
+const TOKEN_KEY = 'auth_token';
+const USER_KEY = 'auth_user';
 
-export interface UpdateUserDto {
-  username?: string;
-  password?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  isAdmin?: boolean;
-  isDepartmentAdmin?: boolean;
-  isTeamMember?: boolean;
-  isActive?: boolean;
-  isDeleted?: boolean;
-  hasDepartmentRights?: boolean;
-  managedEquipmentTypes?: string[];
-  departmentId?: string;
-  teamId?: string;
-}
+class AuthService {
+  private currentUser: User | null = null;
+  private token: string | null = null;
 
-const authService = {
-  login: async (credentials: LoginCredentials): Promise<{ user: User; token: string }> => {
-    const response = await api.post('/auth/login', credentials);
-    const { user, token } = response.data;
+  // Authentification
+  async login(credentials: LoginCredentials): Promise<LoginResponse> {
+    console.log('authService: Début de la connexion pour', credentials.username);
     
-    // Stocker le token dans localStorage et cookies
-    localStorage.setItem('token', token);
-    Cookies.set('token', token, { expires: 7 }); // Expire dans 7 jours
-    
-    // Stocker les données utilisateur pour les vérifications synchrones
-    localStorage.setItem('user', JSON.stringify(user));
-    
-    return { user, token };
-  },
-
-  register: async (userData: RegisterUserDto): Promise<User> => {
-    const response = await api.post('/auth/register', userData);
-
-    
-return response.data;
-  },
-
-  logout: (): void => {
-    // Supprimer le token du localStorage et des cookies
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    Cookies.remove('token');
-  },
-
-  getCurrentUser: async (): Promise<User | null> => {
     try {
-      // Vérifier d'abord si un token existe avant de faire la requête
-      const token = localStorage.getItem('token') || Cookies.get('token');
+      const response = await api.post('/auth/login', credentials);
 
-      if (!token) {
-        return null; // Pas de token, donc pas d'utilisateur connecté
+      console.log('authService: Réponse de connexion reçue:', response.status);
+      
+      if (!response.data || !response.data.accessToken) {
+        throw new Error('Format de réponse invalide - token manquant');
       }
 
-      // Essayer la requête
-      const response = await api.get('/auth/me');
-
+      const { accessToken, ...userData } = response.data;
       
-return response.data;
+      // Construire l'objet utilisateur avec les bonnes propriétés
+      const user: User = {
+        id: userData.id,
+        username: userData.username,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        isAdmin: userData.isAdmin,
+        isDepartmentAdmin: userData.isDepartmentAdmin,
+        isTeamMember: userData.isTeamMember,
+        departmentId: userData.departmentId,
+        teamId: userData.teamId,
+        hasDepartmentRights: userData.hasDepartmentRights,
+        managedEquipmentTypes: userData.managedEquipmentTypes || [],
+        isActive: true, // Par défaut lors de la connexion
+        lastLogin: userData.lastLogin,
+        createdAt: userData.createdAt
+      };
+
+      // Stocker les données d'authentification
+      this.setToken(accessToken);
+      this.setUser(user);
+      
+      console.log('authService: Connexion réussie, token et utilisateur stockés');
+      
+      return { user, token: accessToken };
     } catch (error: any) {
-      // Si erreur 401, supprimer les tokens invalides
+      console.error('authService: Erreur lors de la connexion:', error.message);
+      
+      // Nettoyage en cas d'erreur
+      this.clearAuth();
+      
+      throw error;
+    }
+  }
+
+  // Déconnexion
+  logout(): void {
+    console.log('authService: Déconnexion');
+    this.clearAuth();
+  }
+
+  // Récupérer l'utilisateur actuel depuis le serveur
+  async getCurrentUser(): Promise<User | null> {
+    console.log('authService: Début de fetchCurrentUser');
+    
+    if (!this.isAuthenticated()) {
+      console.log('authService: Pas de token, utilisateur non connecté');
+      
+return null;
+    }
+
+    try {
+      console.log('authService: Appel API /auth/me');
+      const response = await api.get('/auth/me');
+      
+      const userData = response.data;
+
+      const user: User = {
+        id: userData.id,
+        username: userData.username,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        isAdmin: userData.isAdmin,
+        isDepartmentAdmin: userData.isDepartmentAdmin,
+        isTeamMember: userData.isTeamMember,
+        departmentId: userData.departmentId,
+        teamId: userData.teamId,
+        hasDepartmentRights: userData.hasDepartmentRights,
+        managedEquipmentTypes: userData.managedEquipmentTypes || [],
+        isActive: userData.isActive ?? true,
+        lastLogin: userData.lastLogin,
+        createdAt: userData.createdAt
+      };
+
+      this.setUser(user);
+      console.log('authService: Utilisateur récupéré et mis à jour:', user.username);
+      
+      return user;
+    } catch (error: any) {
+      console.error('authService: Erreur lors de la récupération de l\'utilisateur:', error.message);
+      
+      // Si le token est invalide, nettoyer l'authentification
       if (error.response?.status === 401) {
-        localStorage.removeItem('token');
-        Cookies.remove('token');
+        console.log('authService: Token invalide, nettoyage de l\'authentification');
+        this.clearAuth();
       }
       
-      // Renvoyer null dans tous les cas d'erreur
       return null;
     }
-  },
-
-  isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('token') || !!Cookies.get('token');
-  },
-
-  updateUser: async (id: string, userData: UpdateUserDto): Promise<User> => {
-    const response = await api.put(`/users/${id}`, userData);
-
-    
-return response.data;
-  },
-
-  getAllUsers: async (): Promise<User[]> => {
-    const response = await api.get('/users');
-
-    
-return response.data;
-  },
-
-  getUserById: async (id: string): Promise<User> => {
-    const response = await api.get(`/users/${id}`);
-
-    
-return response.data;
-  },
-
-  deleteUser: async (id: string): Promise<void> => {
-    await api.delete(`/users/${id}`);
   }
-};
+
+  // Vérifier si l'utilisateur est authentifié
+  isAuthenticated(): boolean {
+    const token = this.getToken();
+    const isAuth = Boolean(token);
+
+    console.log('authService: Vérification d\'authentification:', isAuth ? 'Authentifié' : 'Non authentifié');
+    
+return isAuth;
+  }
+
+  // Gestion du token
+  private setToken(token: string): void {
+    this.token = token;
+    localStorage.setItem(TOKEN_KEY, token);
+    console.log('authService: Token stocké');
+  }
+
+  getToken(): string | null {
+    if (!this.token) {
+      this.token = localStorage.getItem(TOKEN_KEY);
+    }
+
+    
+return this.token;
+  }
+
+  private removeToken(): void {
+    this.token = null;
+    localStorage.removeItem(TOKEN_KEY);
+    console.log('authService: Token supprimé');
+  }
+
+  // Gestion de l'utilisateur
+  private setUser(user: User): void {
+    this.currentUser = user;
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+
+  getCachedUser(): User | null {
+    if (!this.currentUser) {
+      const storedUser = localStorage.getItem(USER_KEY);
+
+      if (storedUser) {
+        try {
+          this.currentUser = JSON.parse(storedUser);
+        } catch (error) {
+          console.error('authService: Erreur lors du parsing de l\'utilisateur stocké');
+          localStorage.removeItem(USER_KEY);
+        }
+      }
+    }
+
+    
+return this.currentUser;
+  }
+
+  private removeUser(): void {
+    this.currentUser = null;
+    localStorage.removeItem(USER_KEY);
+  }
+
+  // Nettoyer toutes les données d'authentification
+  private clearAuth(): void {
+    this.removeToken();
+    this.removeUser();
+    console.log('authService: Authentification nettoyée');
+  }
+
+  // Méthode de diagnostic
+  diagnose(): void {
+    console.log('=== DIAGNOSTIC AUTH SERVICE ===');
+    console.log('Token présent:', Boolean(this.getToken()));
+    console.log('Utilisateur en cache:', Boolean(this.getCachedUser()));
+    console.log('Authentifié:', this.isAuthenticated());
+    console.log('Token value:', this.getToken()?.substring(0, 20) + '...');
+    console.log('User cache:', this.getCachedUser()?.username);
+    console.log('================================');
+  }
+}
+
+const authService = new AuthService();
 
 export default authService; 

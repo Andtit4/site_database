@@ -11,23 +11,12 @@ exports.AppDataSource = new typeorm_1.DataSource({
     database: process.env.DATABASE_NAME || 'u527740812_site_info_db',
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     migrations: [],
-    synchronize: true,
+    synchronize: false,
     logging: false,
     charset: 'utf8mb4_unicode_ci',
     connectTimeout: 20000,
-    acquireTimeout: 20000,
     extra: {
         connectionLimit: 10,
-        maxIdle: 5,
-        idleTimeout: 30000,
-        enableKeepAlive: true,
-        keepAliveInitialDelay: 0,
-        reconnect: true,
-        acquireTimeoutMillis: 20000,
-        createTimeoutMillis: 20000,
-        destroyTimeoutMillis: 5000,
-        reapIntervalMillis: 1000,
-        createRetryIntervalMillis: 200,
     }
 });
 const typeOrmConfig = (configService) => ({
@@ -39,23 +28,12 @@ const typeOrmConfig = (configService) => ({
     database: configService.get('DATABASE_NAME', 'u527740812_site_info_db'),
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     migrations: [],
-    synchronize: true,
+    synchronize: false,
     logging: configService.get('NODE_ENV') === 'development',
     charset: 'utf8mb4_unicode_ci',
     connectTimeout: 20000,
-    acquireTimeout: 20000,
     extra: {
         connectionLimit: 10,
-        maxIdle: 5,
-        idleTimeout: 30000,
-        enableKeepAlive: true,
-        keepAliveInitialDelay: 0,
-        reconnect: true,
-        acquireTimeoutMillis: 20000,
-        createTimeoutMillis: 20000,
-        destroyTimeoutMillis: 5000,
-        reapIntervalMillis: 1000,
-        createRetryIntervalMillis: 200,
     }
 });
 exports.typeOrmConfig = typeOrmConfig;

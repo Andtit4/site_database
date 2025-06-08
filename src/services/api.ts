@@ -1,10 +1,10 @@
 import axios from 'axios';
-import Cookies from 'js-cookie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
 const api = axios.create({
   baseURL: API_URL,
+  timeout: 30000, // Augmenter le timeout à 30 secondes temporairement
   headers: {
     'Content-Type': 'application/json',
   },
@@ -13,36 +13,48 @@ const api = axios.create({
 // Intercepteur pour ajouter le token d'authentification
 api.interceptors.request.use(
   (config) => {
-    // Obtenir le token depuis le cookie auth_token
-    const token = Cookies.get('token');
+    const token = localStorage.getItem('auth_token');
     
     if (token) {
-      console.log('API: Ajout du token d\'authentification à la requête');
+      console.log(`API: Ajout du token d'authentification à la requête ${config.method?.toUpperCase()} ${config.url}`);
       config.headers.Authorization = `Bearer ${token}`;
     } else {
-      console.warn('API: Aucun token d\'authentification trouvé');
+      console.log(`API: Aucun token trouvé pour la requête ${config.method?.toUpperCase()} ${config.url}`);
     }
 
+    console.log(`API: Début de la requête ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.error('API: Erreur dans l\'intercepteur de requête:', error);
+    return Promise.reject(error);
+  }
 );
 
-// Intercepteur pour gérer les erreurs d'authentification
+// Intercepteur pour gérer les réponses et erreurs
 api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    console.error('API Error:', error.response?.status, error.message);
-    
-    if (error.response?.status === 401) {
-      console.error('API: Erreur 401 - Token invalide ou expiré');
+  (response) => {
+    console.log(`API: Réponse reçue ${response.status} pour ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    return response;
+  },
+  (error) => {
+    const { config, response, code, message } = error;
 
-      // Supprimer le token invalide
-      Cookies.remove('token');
-      Cookies.remove('user_name');
+    if (code === 'ECONNABORTED') {
+      console.error(`API: Timeout (${config?.timeout}ms) pour ${config?.method?.toUpperCase()} ${config?.url}:`, message);
+    } else if (code === 'ECONNREFUSED') {
+      console.error(`API: Connexion refusée pour ${config?.method?.toUpperCase()} ${config?.url}:`, message);
+    } else if (response) {
+      console.error(`API: Erreur ${response.status} pour ${config?.method?.toUpperCase()} ${config?.url}:`, response.data || message);
       
-      // Afficher un avertissement mais ne pas rediriger automatiquement
-      console.warn('Votre session a expiré. Veuillez vous reconnecter.');
+      // Si erreur 401, supprimer le token
+      if (response.status === 401) {
+        console.log('API: Token invalide, suppression du localStorage');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+      }
+    } else {
+      console.error(`API: Erreur réseau pour ${config?.method?.toUpperCase()} ${config?.url}:`, message);
     }
 
     return Promise.reject(error);
