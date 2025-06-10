@@ -157,7 +157,11 @@ return isAuth;
   private setToken(token: string): void {
     this.token = token;
     localStorage.setItem(TOKEN_KEY, token);
-    console.log('authService: Token stocké');
+    
+    // Stocker également dans un cookie pour le middleware
+    document.cookie = `token=${token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+    
+    console.log('authService: Token stocké dans localStorage et cookie');
   }
 
   getToken(): string | null {
@@ -172,7 +176,11 @@ return this.token;
   private removeToken(): void {
     this.token = null;
     localStorage.removeItem(TOKEN_KEY);
-    console.log('authService: Token supprimé');
+    
+    // Supprimer également le cookie
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    
+    console.log('authService: Token supprimé du localStorage et cookie');
   }
 
   // Gestion de l'utilisateur
@@ -219,6 +227,15 @@ return this.currentUser;
     console.log('Authentifié:', this.isAuthenticated());
     console.log('Token value:', this.getToken()?.substring(0, 20) + '...');
     console.log('User cache:', this.getCachedUser()?.username);
+    
+    // Vérifier le cookie aussi
+    const cookieToken = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('token='))
+      ?.split('=')[1];
+
+    console.log('Cookie token présent:', Boolean(cookieToken));
+    console.log('Cookie token value:', cookieToken?.substring(0, 20) + '...');
     console.log('================================');
   }
 }

@@ -54,9 +54,9 @@ export type Config = {
 }
 
 const themeConfig: Config = {
-  templateName: 'Vuexy',
+  templateName: 'Site Database',
   homePageUrl: '/dashboard/telecom-dashboard',
-  settingsCookieName: 'vuexy-mui-next-demo-1',
+  settingsCookieName: 'site-database-demo-1',
   mode: 'system', // 'system', 'light', 'dark'
   skin: 'default', // 'default', 'bordered'
   semiDark: false, // true, false

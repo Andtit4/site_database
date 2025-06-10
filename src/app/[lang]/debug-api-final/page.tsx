@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Box, Typography, Paper, Button, Alert } from '@mui/material'
+
+import { Box, Typography, Paper, Button, Alert, Card, CardContent, Divider } from '@mui/material'
+import authService from '@/services/authService'
 
 export default function DebugApiPage() {
   const [apiCalls, setApiCalls] = useState<string[]>([])
   const [isMonitoring, setIsMonitoring] = useState(false)
+  const [authDiagnosis, setAuthDiagnosis] = useState<string>('')
 
   // Monitorer les appels API en interceptant fetch
   useEffect(() => {
@@ -45,6 +48,21 @@ export default function DebugApiPage() {
     setApiCalls([])
   }
 
+  const runAuthDiagnosis = () => {
+    const originalLog = console.log
+    let capturedLogs: string[] = []
+    
+    console.log = (...args) => {
+      capturedLogs.push(args.join(' '))
+      originalLog(...args)
+    }
+    
+    authService.diagnose()
+    
+    console.log = originalLog
+    setAuthDiagnosis(capturedLogs.join('\n'))
+  }
+
   return (
     <Box sx={{ p: 4 }}>
       <Typography variant="h4" gutterBottom>
@@ -52,9 +70,33 @@ export default function DebugApiPage() {
       </Typography>
       
       <Alert severity="info" sx={{ mb: 3 }}>
-        Cette page permet de vérifier qu'il n'y a plus d'appels API continuels.
+        Cette page permet de vérifier qu&apos;il n&apos;y a plus d&apos;appels API continuels.
         Activez le monitoring, allez sur le dashboard et les sites, puis revenez ici pour voir les résultats.
       </Alert>
+
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Diagnostic d&apos;authentification
+          </Typography>
+          <Button 
+            variant="outlined" 
+            onClick={runAuthDiagnosis}
+            sx={{ mb: 2 }}
+          >
+            Lancer le diagnostic
+          </Button>
+          {authDiagnosis && (
+            <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>
+                {authDiagnosis}
+              </pre>
+            </Paper>
+          )}
+        </CardContent>
+      </Card>
+
+      <Divider sx={{ mb: 3 }} />
 
       <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
         <Button 
@@ -86,7 +128,7 @@ export default function DebugApiPage() {
       </Typography>
 
       <Typography variant="h6" gutterBottom>
-        Nombre d'appels API: {apiCalls.length}
+        Nombre d&apos;appels API: {apiCalls.length}
       </Typography>
 
       <Paper sx={{ p: 2, maxHeight: '400px', overflow: 'auto' }}>
@@ -118,8 +160,8 @@ export default function DebugApiPage() {
           Test réussi si :
         </Typography>
         <Typography variant="body2" component="div">
-          • Pas d'appels API répétitifs toutes les secondes<br/>
-          • Les appels API ne se déclenchent que lors d'actions utilisateur<br/>
+          • Pas d&apos;appels API répétitifs toutes les secondes<br/>
+          • Les appels API ne se déclenchent que lors d&apos;actions utilisateur<br/>
           • Le dashboard se charge une seule fois au démarrage<br/>
           • La page des sites se charge une seule fois au démarrage
         </Typography>

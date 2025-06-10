@@ -17,13 +17,17 @@ export function middleware(request: NextRequest) {
   const lang = pathParts.length > 1 ? pathParts[1] : 'fr'
   
   // Vérifier si l'utilisateur accède à une route publique
-  const isPublicRoute = publicRoutes.some(route => url.pathname.includes(route))
+  // Inclure les routes avec la langue (ex: /fr/auth/login)
+  const isPublicRoute = publicRoutes.some(route => 
+    url.pathname.includes(route) || 
+    url.pathname.includes(`/${lang}${route}`) ||
+    url.pathname.includes(`/auth/`)
+  )
   
   // Si la route est publique, permettre l'accès
   if (isPublicRoute) {
     console.log('Route publique, accès autorisé');
-    
-return NextResponse.next()
+    return NextResponse.next()
   }
 
   // Si l'utilisateur n'est pas authentifié et essaie d'accéder à une route protégée
@@ -36,8 +40,7 @@ return NextResponse.next()
 
   // Si l'utilisateur est authentifié, permettre l'accès à toutes les routes
   console.log('Utilisateur authentifié, accès autorisé');
-  
-return NextResponse.next()
+  return NextResponse.next()
 }
 
 // Configurer les routes sur lesquelles le middleware s'applique
