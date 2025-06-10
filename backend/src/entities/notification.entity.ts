@@ -57,7 +57,7 @@ export class Notification {
   @Column({ type: 'varchar', length: 100, nullable: true })
   category: string;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   expiresAt: Date;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'CASCADE' })

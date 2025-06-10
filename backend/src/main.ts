@@ -1,11 +1,28 @@
+import { config } from 'dotenv';
+
+config();
+
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { spawn } from 'child_process';
+
+import { AppModule } from './app.module';
+
+// dotenv.config() is not needed since we already have import 'dotenv/config' at the top
 
 async function bootstrap() {
+  // Vérification des variables d'environnement critiques
+  console.log('🔍 Vérification des variables d\'environnement...');
+  console.log('JWT_SECRET:', process.env.JWT_SECRET ? '✅ Défini' : '❌ Manquant');
+  console.log('DATABASE_HOST:', process.env.DATABASE_HOST || '❌ Manquant');
+  console.log('DATABASE_PORT:', process.env.DATABASE_PORT || '❌ Manquant');
+  console.log('DATABASE_NAME:', process.env.DATABASE_NAME || '❌ Manquant');
+  
+  if (!process.env.JWT_SECRET) {
+    throw new Error('❌ JWT_SECRET est requis dans le fichier .env');
+  }
+
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
@@ -18,7 +35,8 @@ async function bootstrap() {
     },
     exceptionFactory: (errors) => {
       console.log('Erreurs de validation:', JSON.stringify(errors, null, 2));
-      return new Error('Validation failed: ' + JSON.stringify(errors));
+      
+return new Error('Validation failed: ' + JSON.stringify(errors));
     }
   }));
 
@@ -31,6 +49,7 @@ async function bootstrap() {
   });
 
   const apiPrefix = configService.get<string>('API_PREFIX') || 'api';
+
   app.setGlobalPrefix(apiPrefix);
 
   // Configuration Swagger
@@ -56,7 +75,9 @@ async function bootstrap() {
       'JWT-auth',
     )
     .build();
+
   const document = SwaggerModule.createDocument(app, config);
+
   SwaggerModule.setup('docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
@@ -70,8 +91,10 @@ async function bootstrap() {
   });
 
   const port = configService.get<number>('API_PORT') || 3000;
+
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
   console.log(`Documentation Swagger disponible sur: http://localhost:${port}/docs`);
 }
+
 bootstrap();

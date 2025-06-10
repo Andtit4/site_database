@@ -1,54 +1,89 @@
-# Site Info - Backend API
+# Backend API - Site Database
 
-API Backend pour l'application de gestion des sites de télécommunication.
+## Description
+
+API Backend pour l'application Site Database, construite avec NestJS et TypeScript.
 
 ## Technologies utilisées
 
-- NestJS - Framework backend
-- TypeORM - ORM pour la base de données
-- MySQL - Base de données relationnelle
-- Class Validator - Validation des DTO
+- NestJS - Framework Node.js robuste
+- TypeScript - Langage typé
+- PostgreSQL - Base de données relationnelle
+- TypeORM - ORM pour TypeScript
+- JWT - Authentification
+- Bcrypt - Hachage des mots de passe
+- Class Validator - Validation des données
 
 ## Installation
 
 ```bash
 # Installation des dépendances
 npm install
+
+# Configuration de l'environnement
+cp .env.example .env
+# Éditer le fichier .env avec vos paramètres PostgreSQL
 ```
 
-## Configuration
+## Configuration de la base de données
 
-Créez un fichier `.env` à la racine du projet avec les variables suivantes :
+Consultez `POSTGRESQL_SETUP.md` pour la configuration complète de PostgreSQL.
 
-```
+Exemple de configuration dans `.env` :
+```env
 DATABASE_HOST=localhost
-DATABASE_PORT=3306
-DATABASE_USERNAME=root
-DATABASE_PASSWORD=root
-DATABASE_NAME=site_info_db
-
-API_PORT=3000
-API_PREFIX=api
+DATABASE_PORT=5432
+DATABASE_USERNAME=postgres
+DATABASE_PASSWORD=your_password
+DATABASE_NAME=site_database
 ```
 
-## Lancement de l'application
+## Scripts disponibles
 
 ```bash
-# Développement
+# Démarrage avec vérification PostgreSQL
+npm run start:postgres
+
+# Démarrage en développement
 npm run start:dev
 
-# Production
-npm run build
+# Démarrage en production
 npm run start:prod
+
+# Migration MySQL vers PostgreSQL
+npm run migrate:mysql-to-postgres
+
+# Tests
+npm run test
 ```
 
-## Initialisation des données
+## API Documentation
 
-Une fois l'application lancée, vous pouvez initialiser la base de données avec des données de test en exécutant :
+Une fois l'application démarrée, la documentation Swagger est disponible à :
+[http://localhost:5001/docs](http://localhost:5001/docs)
+
+## Structure du projet
 
 ```
-POST http://localhost:3000/api/seed
+src/
+├── config/         # Configuration (database, jwt, etc.)
+├── entities/       # Entités TypeORM
+├── dto/           # Data Transfer Objects
+├── controllers/   # Contrôleurs REST
+├── services/      # Services métier
+├── auth/          # Module d'authentification
+└── main.ts        # Point d'entrée
 ```
+
+## Migrations de base de données
+
+L'application utilise TypeORM en mode `synchronize: false` pour éviter les conflits.
+Les tables sont créées automatiquement au premier démarrage.
+
+## Support
+
+- Pour la configuration PostgreSQL : voir `POSTGRESQL_SETUP.md`
+- Pour les problèmes de migration : voir `../POSTGRESQL_MIGRATION.md`
 
 ## Structure de l'API
 

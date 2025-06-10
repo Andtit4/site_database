@@ -50,25 +50,29 @@ export class TableManagerService {
         await this.dropTable(definition.tableName);
       }
       
-      // Créer la table avec les colonnes spécifiées
-      let query = `CREATE TABLE ${definition.tableName} (
-        id varchar(36) PRIMARY KEY,
-        site_id varchar(36) NOT NULL,
-        created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-        updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`;
+      // Créer la table avec les colonnes spécifiées (syntaxe PostgreSQL)
+      let query = `CREATE TABLE "${definition.tableName}" (
+        "id" character varying(36) NOT NULL,
+        "site_id" character varying(36) NOT NULL,
+        "created_at" TIMESTAMP DEFAULT now(),
+        "updated_at" TIMESTAMP DEFAULT now()`;
       
       // Ajouter les colonnes définies par l'utilisateur
       for (const column of definition.columns) {
-        const columnType = column.type + (column.type.toLowerCase() === 'varchar' ? `(${column.length || 255})` : '');
-        const nullableStr = column.nullable ? 'NULL' : 'NOT NULL';
+        let columnType = column.type;
+        if (column.type.toLowerCase() === 'varchar') {
+          columnType = `character varying(${column.length || 255})`;
+        }
+        const nullableStr = column.nullable !== false ? 'NULL' : 'NOT NULL';
         const defaultStr = column.defaultValue ? `DEFAULT '${column.defaultValue}'` : '';
         
-        query += `,\n        ${column.name} ${columnType} ${nullableStr} ${defaultStr}`.trim();
+        query += `,\n        "${column.name}" ${columnType} ${nullableStr} ${defaultStr}`.trim();
       }
       
-      // Fermer la définition de la table
-      query += `,\n        FOREIGN KEY (site_id) REFERENCES site(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`;
+      // Fermer la définition de la table avec contraintes PostgreSQL
+      query += `,\n        CONSTRAINT "PK_${definition.tableName}" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_${definition.tableName}_site" FOREIGN KEY ("site_id") REFERENCES "site"("id") ON DELETE CASCADE
+      );`;
       
       await queryRunner.query(query);
       await queryRunner.commitTransaction();
@@ -83,11 +87,11 @@ export class TableManagerService {
   private async checkTableExists(tableName: string): Promise<boolean> {
     const result = await this.dataSource.query(
       `SELECT COUNT(*) as count FROM information_schema.tables 
-       WHERE table_schema = DATABASE() AND table_name = ?`,
+       WHERE table_schema = 'public' AND table_name = $1;`,
       [tableName]
     );
     
-    return result[0].count > 0;
+    return parseInt(result[0].count) > 0;
   }
 
   async dropTable(tableName: string): Promise<void> {
@@ -96,7 +100,7 @@ export class TableManagerService {
     await queryRunner.startTransaction();
     
     try {
-      await queryRunner.query(`DROP TABLE IF EXISTS ${tableName}`);
+      await queryRunner.query(`DROP TABLE IF EXISTS "${tableName}" CASCADE;`);
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
