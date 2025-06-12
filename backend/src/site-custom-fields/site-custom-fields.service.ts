@@ -1,9 +1,13 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, LessThan } from 'typeorm';
+import type { Repository} from 'typeorm';
+import { MoreThan, LessThan, In } from 'typeorm';
+
 import { SiteCustomField, CustomFieldType } from '../entities/site-custom-field.entity';
-import { SiteCustomFieldBackup, BackupAction } from '../entities/site-custom-field-backup.entity';
+import type { BackupAction } from '../entities/site-custom-field-backup.entity';
+import { SiteCustomFieldBackup } from '../entities/site-custom-field-backup.entity';
 import { Site } from '../entities/site.entity';
+import { Department } from '../entities/department.entity';
 
 export interface CreateCustomFieldDto {
   fieldName: string;
@@ -21,6 +25,7 @@ export interface CreateCustomFieldDto {
   };
   description?: string;
   sortOrder?: number;
+  allowedDepartmentIds?: string[]; // IDs des départements autorisés
 }
 
 export interface UpdateCustomFieldDto {
@@ -39,6 +44,7 @@ export interface UpdateCustomFieldDto {
   description?: string;
   sortOrder?: number;
   active?: boolean;
+  allowedDepartmentIds?: string[]; // IDs des départements autorisés
 }
 
 export interface CreateBackupDto {
@@ -65,10 +71,13 @@ export class SiteCustomFieldsService {
     private backupRepository: Repository<SiteCustomFieldBackup>,
     @InjectRepository(Site)
     private siteRepository: Repository<Site>,
+    @InjectRepository(Department)
+    private departmentRepository: Repository<Department>,
   ) {}
 
   async findAll(): Promise<SiteCustomField[]> {
     return this.customFieldRepository.find({
+      relations: ['allowedDepartments'],
       order: { sortOrder: 'ASC', createdAt: 'ASC' }
     });
   }
@@ -76,16 +85,45 @@ export class SiteCustomFieldsService {
   async findActive(): Promise<SiteCustomField[]> {
     return this.customFieldRepository.find({
       where: { active: true },
+      relations: ['allowedDepartments'],
       order: { sortOrder: 'ASC', createdAt: 'ASC' }
     });
   }
 
+  /**
+   * Récupérer les champs actifs autorisés pour un département
+   */
+  async findActiveForDepartment(departmentId: string, isAdmin: boolean = false): Promise<SiteCustomField[]> {
+    if (isAdmin) {
+      // Les administrateurs voient tous les champs actifs
+      return this.findActive();
+    }
+
+    return this.customFieldRepository
+      .createQueryBuilder('field')
+      .leftJoinAndSelect('field.allowedDepartments', 'department')
+      .where('field.active = :active', { active: true })
+      .andWhere(
+        '(department.id = :departmentId OR NOT EXISTS (SELECT 1 FROM site_custom_field_departments scd WHERE scd."customFieldId" = field.id))',
+        { departmentId }
+      )
+      .orderBy('field.sortOrder', 'ASC')
+      .addOrderBy('field.createdAt', 'ASC')
+      .getMany();
+  }
+
   async findOne(id: string): Promise<SiteCustomField> {
-    const field = await this.customFieldRepository.findOne({ where: { id } });
+    const field = await this.customFieldRepository.findOne({ 
+      where: { id },
+      relations: ['allowedDepartments']
+    });
+
     if (!field) {
       throw new NotFoundException(`Champ personnalisé avec ID ${id} non trouvé`);
     }
-    return field;
+
+    
+return field;
   }
 
   async create(createDto: CreateCustomFieldDto): Promise<SiteCustomField> {
@@ -103,7 +141,19 @@ export class SiteCustomFieldsService {
       throw new BadRequestException('Les champs de type SELECT doivent avoir au moins une option');
     }
 
-    const field = this.customFieldRepository.create(createDto);
+    // Créer le champ
+    const { allowedDepartmentIds, ...fieldData } = createDto;
+    const field = this.customFieldRepository.create(fieldData);
+
+    // Associer les départements si fournis
+    if (allowedDepartmentIds && allowedDepartmentIds.length > 0) {
+      const departments = await this.departmentRepository.findBy({
+        id: In(allowedDepartmentIds)
+      });
+
+      field.allowedDepartments = departments;
+    }
+
     return this.customFieldRepository.save(field);
   }
 
@@ -115,25 +165,54 @@ export class SiteCustomFieldsService {
       throw new BadRequestException('Les champs de type SELECT doivent avoir au moins une option');
     }
 
-    Object.assign(field, updateDto);
+    // Mettre à jour les départements si fournis
+    const { allowedDepartmentIds, ...fieldData } = updateDto;
+    
+    Object.assign(field, fieldData);
+
+    if (allowedDepartmentIds !== undefined) {
+      if (allowedDepartmentIds.length > 0) {
+        const departments = await this.departmentRepository.findBy({
+          id: In(allowedDepartmentIds)
+        });
+
+        field.allowedDepartments = departments;
+      } else {
+        field.allowedDepartments = [];
+      }
+    }
+
     return this.customFieldRepository.save(field);
   }
 
   async remove(id: string): Promise<void> {
     const field = await this.findOne(id);
+
     await this.customFieldRepository.remove(field);
   }
 
   async toggleActive(id: string): Promise<SiteCustomField> {
     const field = await this.findOne(id);
+
     field.active = !field.active;
-    return this.customFieldRepository.save(field);
+    
+return this.customFieldRepository.save(field);
   }
 
   async updateSortOrder(fieldIds: string[]): Promise<void> {
     for (let i = 0; i < fieldIds.length; i++) {
       await this.customFieldRepository.update(fieldIds[i], { sortOrder: i });
     }
+  }
+
+  /**
+   * Récupérer tous les départements pour l'interface de sélection
+   */
+  async getAllDepartments(): Promise<Department[]> {
+    return this.departmentRepository.find({
+      where: { isActive: true },
+      order: { name: 'ASC' }
+    });
   }
 
   // ===== NOUVELLES MÉTHODES POUR L'ANALYSE ET LA SÉCURITÉ =====
@@ -160,8 +239,10 @@ export class SiteCustomFieldsService {
       
       // Analyser les types de données qui seront perdues
       const dataTypes = new Set<string>();
+
       sites.forEach(site => {
         const value = site.customFieldsValues?.[field.fieldName];
+
         if (value !== null && value !== undefined && value !== '') {
           affectedSitesData[site.id] = {
             siteName: site.name,
@@ -246,12 +327,15 @@ export class SiteCustomFieldsService {
       if (updateDto.validation.min !== undefined && field.validation?.min !== updateDto.validation.min) {
         warnings.push(`Nouvelle valeur minimale: ${updateDto.validation.min}`);
       }
+
       if (updateDto.validation.max !== undefined && field.validation?.max !== updateDto.validation.max) {
         warnings.push(`Nouvelle valeur maximale: ${updateDto.validation.max}`);
       }
+
       if (updateDto.validation.minLength !== undefined && field.validation?.minLength !== updateDto.validation.minLength) {
         warnings.push(`Nouvelle longueur minimale: ${updateDto.validation.minLength}`);
       }
+
       if (updateDto.validation.maxLength !== undefined && field.validation?.maxLength !== updateDto.validation.maxLength) {
         warnings.push(`Nouvelle longueur maximale: ${updateDto.validation.maxLength}`);
       }
@@ -272,6 +356,7 @@ export class SiteCustomFieldsService {
       const newOptions = updateDto.options;
       
       const removedOptions = currentOptions.filter(opt => !newOptions.includes(opt));
+
       if (removedOptions.length > 0) {
         warnings.push(`Options supprimées: ${removedOptions.join(', ')}`);
         warnings.push('Les sites utilisant ces options pourraient avoir des valeurs invalides');
@@ -316,10 +401,13 @@ export class SiteCustomFieldsService {
    */
   async getBackupById(id: string): Promise<SiteCustomFieldBackup> {
     const backup = await this.backupRepository.findOne({ where: { id } });
+
     if (!backup) {
       throw new NotFoundException(`Sauvegarde avec ID ${id} non trouvée`);
     }
-    return backup;
+
+    
+return backup;
   }
 
   /**
@@ -352,6 +440,7 @@ export class SiteCustomFieldsService {
     } else {
       // Créer un nouveau champ avec les données de la sauvegarde
       const { id, createdAt, updatedAt, ...fieldDataWithoutDates } = backup.fieldData;
+
       restoredField = this.customFieldRepository.create(fieldDataWithoutDates);
       restoredField = await this.customFieldRepository.save(restoredField);
     }
@@ -360,8 +449,10 @@ export class SiteCustomFieldsService {
     if (backup.affectedSitesData && Object.keys(backup.affectedSitesData).length > 0) {
       for (const [siteId, siteData] of Object.entries(backup.affectedSitesData)) {
         const site = await this.siteRepository.findOne({ where: { id: siteId } });
+
         if (site) {
           const customFieldsValues = site.customFieldsValues || {};
+
           customFieldsValues[backup.fieldData.fieldName] = siteData.fieldValue;
           site.customFieldsValues = customFieldsValues;
           await this.siteRepository.save(site);
@@ -381,6 +472,7 @@ export class SiteCustomFieldsService {
    */
   async deleteBackup(id: string): Promise<void> {
     const backup = await this.getBackupById(id);
+
     await this.backupRepository.remove(backup);
   }
 
@@ -389,6 +481,7 @@ export class SiteCustomFieldsService {
    */
   async cleanOldBackups(olderThanDays: number = 90): Promise<{ deletedCount: number }> {
     const cutoffDate = new Date();
+
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
     const result = await this.backupRepository.delete({
@@ -426,48 +519,59 @@ export class SiteCustomFieldsService {
             errors.push(`Le champ "${field.fieldLabel}" doit être un nombre`);
           } else {
             const numValue = Number(value);
+
             if (field.validation?.min !== undefined && numValue < field.validation.min) {
               errors.push(`Le champ "${field.fieldLabel}" doit être supérieur ou égal à ${field.validation.min}`);
             }
+
             if (field.validation?.max !== undefined && numValue > field.validation.max) {
               errors.push(`Le champ "${field.fieldLabel}" doit être inférieur ou égal à ${field.validation.max}`);
             }
           }
+
           break;
 
         case CustomFieldType.STRING:
         case CustomFieldType.TEXTAREA:
           const strValue = String(value);
+
           if (field.validation?.minLength !== undefined && strValue.length < field.validation.minLength) {
             errors.push(`Le champ "${field.fieldLabel}" doit contenir au moins ${field.validation.minLength} caractères`);
           }
+
           if (field.validation?.maxLength !== undefined && strValue.length > field.validation.maxLength) {
             errors.push(`Le champ "${field.fieldLabel}" ne peut pas dépasser ${field.validation.maxLength} caractères`);
           }
+
           if (field.validation?.pattern) {
             const regex = new RegExp(field.validation.pattern);
+
             if (!regex.test(strValue)) {
               errors.push(`Le champ "${field.fieldLabel}" ne respecte pas le format requis`);
             }
           }
+
           break;
 
         case CustomFieldType.SELECT:
           if (field.options && !field.options.includes(String(value))) {
             errors.push(`La valeur "${value}" n'est pas valide pour le champ "${field.fieldLabel}"`);
           }
+
           break;
 
         case CustomFieldType.BOOLEAN:
           if (typeof value !== 'boolean' && value !== 'true' && value !== 'false') {
             errors.push(`Le champ "${field.fieldLabel}" doit être une valeur Oui/Non`);
           }
+
           break;
 
         case CustomFieldType.DATE:
           if (isNaN(Date.parse(value))) {
             errors.push(`Le champ "${field.fieldLabel}" doit être une date valide`);
           }
+
           break;
       }
     }

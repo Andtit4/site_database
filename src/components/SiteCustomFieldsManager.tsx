@@ -61,6 +61,7 @@ import {
   CreateCustomFieldDto,
   UpdateCustomFieldDto,
   CustomFieldType,
+  Department,
   getFieldTypeLabel,
   getFieldTypeOptions
 } from '../services/siteCustomFieldsService';
@@ -80,6 +81,7 @@ interface CustomFieldFormData {
     maxLength?: number;
   };
   description: string;
+  allowedDepartmentIds: string[];
 }
 
 interface FieldBackup {
@@ -100,6 +102,7 @@ interface DeleteConfirmData {
 const SiteCustomFieldsManager: React.FC = () => {
   const { user } = useAuth();
   const [fields, setFields] = useState<SiteCustomField[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -112,7 +115,8 @@ const SiteCustomFieldsManager: React.FC = () => {
     defaultValue: '',
     options: [],
     validation: {},
-    description: ''
+    description: '',
+    allowedDepartmentIds: []
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
@@ -127,6 +131,7 @@ const SiteCustomFieldsManager: React.FC = () => {
 
   useEffect(() => {
     loadFields();
+    loadDepartments();
     if (user?.isAdmin) {
       loadBackups();
     }
@@ -135,13 +140,33 @@ const SiteCustomFieldsManager: React.FC = () => {
   const loadFields = async () => {
     try {
       setLoading(true);
-      const data = await siteCustomFieldsService.getAll();
+      
+      // Pour les administrateurs, charger tous les champs
+      // Pour les autres utilisateurs, charger seulement les champs de leur département
+      let data;
+      if (user?.isAdmin) {
+        data = await siteCustomFieldsService.getAll();
+      } else {
+        // Récupérer les champs actifs filtrés par département
+        const departmentId = user?.departmentId?.toString();
+        data = await siteCustomFieldsService.getActive(departmentId, user?.isAdmin);
+      }
+      
       setFields(data);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Erreur lors du chargement des champs');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDepartments = async () => {
+    try {
+      const data = await siteCustomFieldsService.getDepartments();
+      setDepartments(data);
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des départements:', err);
     }
   };
 
@@ -209,7 +234,8 @@ const SiteCustomFieldsManager: React.FC = () => {
       defaultValue: '',
       options: [],
       validation: {},
-      description: ''
+      description: '',
+      allowedDepartmentIds: []
     });
     setFormErrors({});
     setEditingField(null);
@@ -226,7 +252,8 @@ const SiteCustomFieldsManager: React.FC = () => {
         defaultValue: field.defaultValue || '',
         options: field.options || [],
         validation: field.validation || {},
-        description: field.description || ''
+        description: field.description || '',
+        allowedDepartmentIds: field.allowedDepartments?.map(d => d.id) || []
       });
     } else {
       resetForm();
@@ -271,7 +298,8 @@ const SiteCustomFieldsManager: React.FC = () => {
         defaultValue: formData.defaultValue || undefined,
         options: formData.fieldType === CustomFieldType.SELECT ? formData.options : undefined,
         validation: Object.keys(formData.validation).length > 0 ? formData.validation : undefined,
-        description: formData.description || undefined
+        description: formData.description || undefined,
+        allowedDepartmentIds: formData.allowedDepartmentIds.length > 0 ? formData.allowedDepartmentIds : undefined
       };
 
       if (editingField) {
@@ -312,7 +340,8 @@ const SiteCustomFieldsManager: React.FC = () => {
         defaultValue: formData.defaultValue || undefined,
         options: formData.fieldType === CustomFieldType.SELECT ? formData.options : undefined,
         validation: Object.keys(formData.validation).length > 0 ? formData.validation : undefined,
-        description: formData.description || undefined
+        description: formData.description || undefined,
+        allowedDepartmentIds: formData.allowedDepartmentIds.length > 0 ? formData.allowedDepartmentIds : undefined
       };
 
       // Créer une sauvegarde avant modification
@@ -470,6 +499,16 @@ const SiteCustomFieldsManager: React.FC = () => {
         </Alert>
       )}
 
+      {/* Indicateur de filtrage pour les utilisateurs non-admin */}
+      {!user?.isAdmin && user?.departmentId && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            📋 Vous voyez uniquement les champs personnalisés disponibles pour votre département.
+            Les administrateurs peuvent gérer tous les champs du système.
+          </Typography>
+        </Alert>
+      )}
+
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>
@@ -490,6 +529,7 @@ const SiteCustomFieldsManager: React.FC = () => {
                     <TableCell>Libellé</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Requis</TableCell>
+                    <TableCell>Départements</TableCell>
                     <TableCell>Statut</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -565,6 +605,29 @@ const SiteCustomFieldsManager: React.FC = () => {
                         ) : (
                           <Chip label="Optionnel" color="default" size="small" />
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {field.allowedDepartments && field.allowedDepartments.length > 0 ? (
+                            field.allowedDepartments.map((dept) => (
+                              <Chip 
+                                key={dept.id}
+                                label={dept.name} 
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                title={`${dept.type} - ${dept.responsibleName}`}
+                              />
+                            ))
+                          ) : (
+                            <Chip 
+                              label="Tous départements" 
+                              size="small"
+                              variant="outlined"
+                              color="default"
+                            />
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell>
                         <Chip 
@@ -833,6 +896,57 @@ const SiteCustomFieldsManager: React.FC = () => {
                 rows={2}
                 helperText="Texte d'aide qui sera affiché sous le champ"
               />
+            </Grid>
+
+            {/* Sélection des départements autorisés */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>
+                Départements autorisés à remplir ce champ
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel>Départements</InputLabel>
+                <Select
+                  multiple
+                  value={formData.allowedDepartmentIds}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    allowedDepartmentIds: e.target.value as string[] 
+                  }))}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {(selected as string[]).map((id) => {
+                        const dept = departments.find(d => d.id === id);
+                        return (
+                          <Chip 
+                            key={id} 
+                            label={dept?.name || id} 
+                            size="small" 
+                            color="primary"
+                          />
+                        );
+                      })}
+                    </Box>
+                  )}
+                  label="Départements"
+                >
+                  {departments.map((department) => (
+                    <MenuItem key={department.id} value={department.id}>
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold">
+                          {department.name}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          {department.type} - {department.responsibleName}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>
+                  Si aucun département n'est sélectionné, tous les départements auront accès au champ.
+                  Les administrateurs ont toujours accès à tous les champs.
+                </FormHelperText>
+              </FormControl>
             </Grid>
           </Grid>
         </DialogContent>

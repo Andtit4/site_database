@@ -26,6 +26,7 @@ import {
   convertFieldValue,
   formatFieldValue
 } from '../services/siteCustomFieldsService';
+import { useCustomFields } from '../hooks/useCustomFields';
 
 interface DynamicFieldsFormProps {
   values: Record<string, any>;
@@ -40,27 +41,9 @@ const DynamicFieldsForm: React.FC<DynamicFieldsFormProps> = ({
   readOnly = false,
   showTitle = true
 }) => {
-  const [fields, setFields] = useState<SiteCustomField[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Utiliser le hook personnalisé pour récupérer les champs filtrés par département
+  const { fields, loading, error, isAdmin, userDepartmentId } = useCustomFields();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    loadFields();
-  }, []);
-
-  const loadFields = async () => {
-    try {
-      setLoading(true);
-      const data = await siteCustomFieldsService.getActive();
-      setFields(data);
-      setError(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors du chargement des champs');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleFieldChange = (fieldName: string, value: any, fieldType: CustomFieldType) => {
     const convertedValue = convertFieldValue(value, fieldType);
@@ -240,6 +223,16 @@ const DynamicFieldsForm: React.FC<DynamicFieldsFormProps> = ({
         <Typography variant="h6" gutterBottom>
           Champs personnalisés ({fields.length})
         </Typography>
+      )}
+      
+      {/* Indicateur de filtrage pour les utilisateurs non-admin */}
+      {!isAdmin && userDepartmentId && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            📋 Champs disponibles pour votre département. 
+            {fields.length === 0 && ' Aucun champ spécifique à votre département.'}
+          </Typography>
+        </Alert>
       )}
       
       <Grid container spacing={3}>

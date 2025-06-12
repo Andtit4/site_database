@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from 'typeorm';
+import { Department } from './department.entity';
 
 // Types de champs supportés
 export enum CustomFieldType {
@@ -53,6 +54,15 @@ export class SiteCustomField {
 
   @Column({ default: 0 })
   sortOrder: number; // Ordre d'affichage
+
+  // Relation Many-to-Many avec les départements autorisés
+  @ManyToMany(() => Department, { eager: false })
+  @JoinTable({
+    name: 'site_custom_field_departments',
+    joinColumn: { name: 'customFieldId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'departmentId', referencedColumnName: 'id' }
+  })
+  allowedDepartments: Department[];
 
   @CreateDateColumn()
   createdAt: Date;

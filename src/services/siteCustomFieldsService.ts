@@ -9,6 +9,17 @@ export enum CustomFieldType {
   SELECT = 'SELECT'
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+  responsibleName: string;
+  contactEmail: string;
+  contactPhone?: number;
+  isActive: boolean;
+}
+
 export interface SiteCustomField {
   id: string;
   fieldName: string;
@@ -27,6 +38,7 @@ export interface SiteCustomField {
   description?: string;
   active: boolean;
   sortOrder: number;
+  allowedDepartments?: Department[];
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +59,7 @@ export interface CreateCustomFieldDto {
   };
   description?: string;
   sortOrder?: number;
+  allowedDepartmentIds?: string[];
 }
 
 export interface UpdateCustomFieldDto {
@@ -65,6 +78,7 @@ export interface UpdateCustomFieldDto {
   description?: string;
   sortOrder?: number;
   active?: boolean;
+  allowedDepartmentIds?: string[];
 }
 
 export interface FieldBackup {
@@ -90,8 +104,13 @@ export const siteCustomFieldsService = {
   },
 
   // Récupérer les champs personnalisés actifs
-  getActive: async (): Promise<SiteCustomField[]> => {
-    const response = await api.get('/site-custom-fields/active');
+  getActive: async (departmentId?: string, isAdmin?: boolean): Promise<SiteCustomField[]> => {
+    const params = new URLSearchParams();
+    if (departmentId) params.append('departmentId', departmentId);
+    if (isAdmin !== undefined) params.append('isAdmin', isAdmin.toString());
+    
+    const url = `/site-custom-fields/active${params.toString() ? `?${params.toString()}` : ''}`;
+    const response = await api.get(url);
     return response.data;
   },
 
@@ -195,6 +214,14 @@ export const siteCustomFieldsService = {
     const response = await api.delete(`/site-custom-fields/backups/cleanup`, {
       data: { olderThanDays }
     });
+    return response.data;
+  },
+
+  // ===== GESTION DES DÉPARTEMENTS =====
+
+  // Récupérer tous les départements actifs
+  getDepartments: async (): Promise<Department[]> => {
+    const response = await api.get('/site-custom-fields/departments');
     return response.data;
   }
 };

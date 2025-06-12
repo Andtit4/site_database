@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { SiteCustomFieldsService, CreateCustomFieldDto, UpdateCustomFieldDto, CreateBackupDto, FieldAnalysisResult } from './site-custom-fields.service';
 import { SiteCustomField } from '../entities/site-custom-field.entity';
 import { SiteCustomFieldBackup } from '../entities/site-custom-field-backup.entity';
+import { Department } from '../entities/department.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 
@@ -29,8 +30,24 @@ export class SiteCustomFieldsController {
     status: 200,
     description: 'Liste des champs personnalisés actifs récupérée avec succès'
   })
-  findActive(): Promise<SiteCustomField[]> {
+  findActive(
+    @Query('departmentId') departmentId?: string,
+    @Query('isAdmin') isAdmin?: boolean
+  ): Promise<SiteCustomField[]> {
+    if (departmentId) {
+      return this.customFieldsService.findActiveForDepartment(departmentId, isAdmin || false);
+    }
     return this.customFieldsService.findActive();
+  }
+
+  @Get('departments')
+  @ApiOperation({ summary: 'Récupérer tous les départements actifs' })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des départements récupérée avec succès'
+  })
+  getAllDepartments(): Promise<Department[]> {
+    return this.customFieldsService.getAllDepartments();
   }
 
   // ===== ENDPOINTS POUR LA GESTION DES SAUVEGARDES (ADMIN UNIQUEMENT) =====
