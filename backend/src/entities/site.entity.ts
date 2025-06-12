@@ -12,6 +12,21 @@ export enum SiteStatus {
   DELETED = 'DELETED',
 }
 
+// Interface conservée pour compatibilité avec l'ancien système de spécifications
+export interface DynamicFieldDefinition {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'date' | 'select';
+  label: string;
+  required: boolean;
+  defaultValue?: any;
+  options?: string[];
+  validation?: {
+    min?: number;
+    max?: number;
+    pattern?: string;
+  };
+}
+
 @Entity()
 export class Site {
   @PrimaryColumn()
@@ -45,14 +60,29 @@ export class Site {
   @Column({ nullable: true })
   newBase: string;
 
+
+
   @OneToMany(() => Equipment, equipment => equipment.site)
   equipment: Equipment[];
 
   @ManyToMany(() => Team, team => team.sites)
   teams: Team[];
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ 
+    type: 'jsonb',
+    nullable: true 
+  })
   specifications: Record<string, any>;
+
+  // Champs personnalisés dynamiques - valeurs des champs définis dans site_custom_fields
+  @Column({ 
+    type: 'jsonb',
+    nullable: true 
+  })
+  customFieldsValues: Record<string, any>;
+
+  @Column({ nullable: true })
+  departmentId: string;
 
   @Column({ default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

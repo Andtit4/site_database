@@ -30,9 +30,6 @@ import {
   Chip,
   FormControlLabel,
   Switch,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Pagination,
   CircularProgress,
   Alert
@@ -40,16 +37,16 @@ import {
 
 import type { SelectChangeEvent } from '@mui/material/Select'
 
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SearchIcon from '@mui/icons-material/Search'
 import FilterListIcon from '@mui/icons-material/FilterList'
 
 import { sitesService } from '@/services'
 import type { Site, CreateSiteDto, UpdateSiteDto } from '@/services/sitesService';
 import { SiteStatus, region } from '@/services/sitesService'
-import siteSpecificationsService, { SiteTypes } from '@/services/siteSpecificationsService'
+
 import { useAuth } from '@/hooks/useAuth'
 import { useSitesWithPermissions } from '@/hooks/useSitesWithPermissions'
+import DynamicFieldsForm from '@/components/DynamicFieldsForm'
 
 // Nombre de sites par page
 const ITEMS_PER_PAGE = 10
@@ -71,8 +68,6 @@ const SitesPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<string | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
-  const [specifications, setSpecifications] = useState<any[]>([]);
-  const [currentSpecification, setCurrentSpecification] = useState<any | null>(null);
   const [page, setPage] = useState(1);
   const [filterExpanded, setFilterExpanded] = useState(false);
   
@@ -80,8 +75,7 @@ const SitesPage = () => {
   const [filterValues, setFilterValues] = useState({
     search: '',
     region: '',
-    status: '',
-    type: ''
+    status: ''
   });
 
   // Utiliser le hook personnalisé pour les sites avec gestion des permissions
@@ -103,8 +97,8 @@ const SitesPage = () => {
     longitude: 0,
     latitude: 0,
     status: SiteStatus.ACTIVE,
-    type: SiteTypes.TOUR,
     specifications: {},
+    customFieldsValues: {},
     departmentId: getUserDepartmentId() || undefined // Définir automatiquement le département de l'utilisateur
   })
 
@@ -112,20 +106,17 @@ const SitesPage = () => {
   const params = useParams()
   const lang = params.lang || 'fr'
 
-  const fetchSpecifications = async () => {
-    try {
-      const data = await siteSpecificationsService.getAllSiteSpecifications();
-
-      setSpecifications(data);
-    } catch (err) {
-      console.error('Erreur lors de la récupération des spécifications de sites:', err);
-    }
+  // Fonction pour gérer les changements dans les champs personnalisés
+  const handleCustomFieldsChange = (values: Record<string, any>) => {
+    setFormData({
+      ...formData,
+      customFieldsValues: values
+    });
   };
 
   // Chargement initial des données une seule fois
   useEffect(() => {
     if (!authLoading && user) {
-      fetchSpecifications()
       refreshSites({ showDeleted })
     }
   }, [authLoading, user])
@@ -158,35 +149,19 @@ const SitesPage = () => {
     };
   }, []) // AUCUNE dépendance pour éviter les boucles
 
-  // Lorsque le type de site change, récupérer les spécifications correspondantes
-  useEffect(() => {
-    if (formData.type && specifications.length > 0) {
-      const spec = specifications.find(s => s.siteType === formData.type);
 
-      setCurrentSpecification(spec || null);
-      
-      // Réinitialiser les spécifications lorsque le type change
-      if (formData.specifications && Object.keys(formData.specifications).length > 0) {
-        setFormData(prev => ({
-          ...prev,
-          specifications: {}
-        }));
-      }
-    }
-  }, [formData.type, specifications]) // Garder ces dépendances car nécessaires
 
   // Utiliser useMemo pour calculer les sites filtrés au lieu d'un useEffect
   const filteredSites = useMemo(() => {
     let result = [...sites];
     
-    // Filtrer par recherche (nom, id, type)
+    // Filtrer par recherche (nom, id)
     if (filterValues.search) {
       const searchTerm = filterValues.search.toLowerCase();
 
       result = result.filter(site => 
         site.name.toLowerCase().includes(searchTerm) || 
-        site.id.toLowerCase().includes(searchTerm) ||
-        (site.type && site.type.toLowerCase().includes(searchTerm))
+        site.id.toLowerCase().includes(searchTerm)
       );
     }
     
@@ -198,11 +173,6 @@ const SitesPage = () => {
     // Filtrer par statut
     if (filterValues.status) {
       result = result.filter(site => site.status === filterValues.status);
-    }
-    
-    // Filtrer par type
-    if (filterValues.type) {
-      result = result.filter(site => site.type === filterValues.type);
     }
     
     return result;
@@ -238,8 +208,8 @@ const SitesPage = () => {
         status: site.status as SiteStatus,
         oldBase: site.oldBase,
         newBase: site.newBase,
-        type: site.type || SiteTypes.TOUR,
         specifications: site.specifications || {},
+        customFieldsValues: site.customFieldsValues || {},
         departmentId: site.departmentId
       })
     } else {
@@ -259,8 +229,8 @@ const SitesPage = () => {
         longitude: 0,
         latitude: 0,
         status: SiteStatus.ACTIVE,
-        type: SiteTypes.TOUR,
         specifications: {},
+        customFieldsValues: {},
         departmentId: defaultDepartmentId
       })
     }
@@ -291,16 +261,7 @@ const SitesPage = () => {
     }
   }
 
-  // Gestionnaire pour les changements dans les spécifications
-  const handleSpecificationChange = (name: string, value: any) => {
-    setFormData({
-      ...formData,
-      specifications: {
-        ...formData.specifications,
-        [name]: value
-      }
-    });
-  }
+
 
   const handleSubmit = async () => {
     try {
@@ -330,8 +291,8 @@ return
         status: formData.status,
         oldBase: formData.oldBase,
         newBase: formData.newBase,
-        type: formData.type,
         specifications: formData.specifications,
+        customFieldsValues: formData.customFieldsValues,
         departmentId: formData.departmentId
       };
       
@@ -348,8 +309,8 @@ return
           status: formDataToSubmit.status,
           oldBase: formDataToSubmit.oldBase,
           newBase: formDataToSubmit.newBase,
-          type: formDataToSubmit.type,
-          specifications: formDataToSubmit.specifications
+          specifications: formDataToSubmit.specifications,
+          customFieldsValues: formDataToSubmit.customFieldsValues
         }
 
         await sitesService.updateSite(currentSite.id, updateData)
@@ -588,21 +549,6 @@ return null
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Type de site</InputLabel>
-                  <Select
-                    value={filterValues.type}
-                    label="Type de site"
-                    onChange={(e) => handleFilterChange('type', e.target.value)}
-                  >
-                    <MenuItem value="">Tous les types</MenuItem>
-                    {Object.values(SiteTypes).map((type) => (
-                      <MenuItem key={type} value={type}>{type}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
             </Grid>
           </Box>
         </CardContent>
@@ -617,7 +563,6 @@ return null
                   <TableCell>ID</TableCell>
                   <TableCell>Nom</TableCell>
                   <TableCell>Région</TableCell>
-                  <TableCell>Type</TableCell>
                   <TableCell>Coordonnées</TableCell>
                   <TableCell>Statut</TableCell>
                   <TableCell>Actions</TableCell>
@@ -626,13 +571,13 @@ return null
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={6} align="center">
                       <CircularProgress />
                     </TableCell>
                   </TableRow>
                 ) : displayedSites.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={6} align="center">
                       {permissionError ? 'Aucun accès aux sites' : 'Aucun site trouvé'}
                     </TableCell>
                   </TableRow>
@@ -642,7 +587,6 @@ return null
                       <TableCell>{site.id}</TableCell>
                       <TableCell>{site.name}</TableCell>
                       <TableCell>{site.region}</TableCell>
-                      <TableCell>{site.type || '-'}</TableCell>
                       <TableCell>
                         {site.latitude}, {site.longitude}
                       </TableCell>
@@ -816,50 +760,13 @@ return null
                 onChange={handleInputChange}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Type de site</InputLabel>
-                <Select
-                  name="type"
-                  value={formData.type || SiteTypes.TOUR}
-                  label="Type de site"
-                  onChange={handleInputChange}
-                >
-                  {Object.values(SiteTypes).map((type) => (
-                    <MenuItem key={type} value={type}>{type}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            {/* Champs personnalisés */}
+            <Grid item xs={12}>
+              <DynamicFieldsForm
+                values={formData.customFieldsValues || {}}
+                onChange={handleCustomFieldsChange}
+              />
             </Grid>
-            {currentSpecification && currentSpecification.columns && currentSpecification.columns.length > 0 && (
-              <Grid item xs={12}>
-                <Accordion defaultExpanded>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography variant="subtitle1">
-                      Spécifications spécifiques au type {formData.type}
-                    </Typography>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Grid container spacing={2}>
-                      {currentSpecification.columns.map((column: any, index: number) => (
-                        <Grid item xs={12} md={6} key={index}>
-                          <TextField
-                            fullWidth
-                            label={column.name}
-                            type={column.type === 'int' || column.type === 'float' || column.type === 'decimal' ? 'number' : column.type === 'boolean' ? 'checkbox' : 'text'}
-                            value={formData.specifications?.[column.name] || ''}
-                            onChange={(e) => handleSpecificationChange(column.name, e.target.value)}
-                            required={!column.nullable}
-                            placeholder={column.defaultValue || ''}
-                            helperText={`Type: ${column.type}${column.length ? ` (max: ${column.length})` : ''}`}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </AccordionDetails>
-                </Accordion>
-              </Grid>
-            )}
           </Grid>
         </DialogContent>
         <DialogActions>

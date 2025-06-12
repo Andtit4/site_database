@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In } from 'typeorm';
 import { Site, SiteStatus } from '../entities/site.entity';
@@ -6,6 +6,7 @@ import { Equipment } from '../entities/equipment.entity';
 import { CreateSiteDto, UpdateSiteDto, SiteFilterDto } from '../dto/site.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Team } from '../teams/entities/team.entity';
+import { SiteCustomFieldsService } from '../site-custom-fields/site-custom-fields.service';
 
 @Injectable()
 export class SitesService {
@@ -16,6 +17,7 @@ export class SitesService {
     private teamsRepository: Repository<Team>,
     @InjectRepository(Equipment)
     private equipmentRepository: Repository<Equipment>,
+    private customFieldsService: SiteCustomFieldsService,
   ) {}
 
   async findAll(filterDto: SiteFilterDto = {}): Promise<Site[]> {
@@ -65,8 +67,31 @@ export class SitesService {
       throw new ConflictException(`Un site avec l'ID ${createSiteDto.id} existe deja`);
     }
 
+    // Traitement des champs personnalisés
+    let customFieldsValues: Record<string, any> = {};
+
+    if (createSiteDto.customFieldsValues) {
+      // Appliquer les valeurs par défaut
+      customFieldsValues = await this.customFieldsService.applyDefaultValues(createSiteDto.customFieldsValues);
+
+      // Valider les champs personnalisés
+      const validation = await this.customFieldsService.validateCustomValues(customFieldsValues);
+
+      if (!validation.isValid) {
+        throw new BadRequestException(`Erreurs de validation des champs personnalisés: ${validation.errors.join(', ')}`);
+      }
+
+      // Nettoyer les valeurs pour ne garder que les champs définis
+      customFieldsValues = await this.customFieldsService.cleanCustomValues(customFieldsValues);
+    }
+
     // Creer un nouvel objet site
-    const site = this.sitesRepository.create(createSiteDto);
+    const siteData = {
+      ...createSiteDto,
+      customFieldsValues: customFieldsValues
+    };
+    
+    const site = this.sitesRepository.create(siteData);
     
     // Sauvegarder et retourner le site
     return this.sitesRepository.save(site);
@@ -76,8 +101,29 @@ export class SitesService {
     // Verifier que le site existe
     const site = await this.findOne(id);
     
+    // Traitement des champs personnalisés
+    let customFieldsValues = site.customFieldsValues || {};
+
+    if (updateSiteDto.customFieldsValues) {
+      // Fusionner les nouvelles valeurs avec les existantes
+      customFieldsValues = { ...customFieldsValues, ...updateSiteDto.customFieldsValues };
+      
+      // Valider les champs personnalisés
+      const validation = await this.customFieldsService.validateCustomValues(customFieldsValues);
+
+      if (!validation.isValid) {
+        throw new BadRequestException(`Erreurs de validation des champs personnalisés: ${validation.errors.join(', ')}`);
+      }
+
+      // Nettoyer les valeurs
+      customFieldsValues = await this.customFieldsService.cleanCustomValues(customFieldsValues);
+    }
+    
     // Mettre a jour les proprietes
-    Object.assign(site, updateSiteDto);
+    Object.assign(site, {
+      ...updateSiteDto,
+      customFieldsValues: customFieldsValues
+    });
     
     // Sauvegarder les modifications
     return this.sitesRepository.save(site);

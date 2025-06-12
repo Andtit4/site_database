@@ -1,0 +1,128 @@
+import { Controller, Get, Post, Put, Body, Param, ValidationPipe, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { DynamicFieldsService } from './dynamic-fields.service';
+import { SiteTypes, DynamicFieldDefinition } from '../entities/site.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+export class UpdateDynamicFieldsDto {
+  fieldDefinitions: DynamicFieldDefinition[];
+}
+
+export class ValidateDynamicFieldsDto {
+  fieldDefinitions: DynamicFieldDefinition[];
+  values: Record<string, any>;
+}
+
+@ApiTags('Sites - Champs Dynamiques')
+@Controller('sites/dynamic-fields')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+export class SiteDynamicFieldsController {
+  
+  constructor(private readonly dynamicFieldsService: DynamicFieldsService) {}
+
+  @Get('definitions/:siteType')
+  @ApiOperation({ summary: 'Récupérer les définitions de champs pour un type de site' })
+  @ApiParam({
+    name: 'siteType',
+    enum: SiteTypes,
+    description: 'Type de site'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Définitions des champs dynamiques récupérées avec succès'
+  })
+  getFieldDefinitions(@Param('siteType') siteType: SiteTypes): DynamicFieldDefinition[] {
+    return this.dynamicFieldsService.getDefaultFieldDefinitions(siteType);
+  }
+
+  @Get('definitions')
+  @ApiOperation({ summary: 'Récupérer toutes les définitions de champs pour tous les types de sites' })
+  @ApiResponse({
+    status: 200,
+    description: 'Toutes les définitions des champs dynamiques récupérées avec succès'
+  })
+  getAllFieldDefinitions(): Record<SiteTypes, DynamicFieldDefinition[]> {
+    const result: Record<SiteTypes, DynamicFieldDefinition[]> = {} as Record<SiteTypes, DynamicFieldDefinition[]>;
+    
+    for (const siteType of Object.values(SiteTypes)) {
+      result[siteType] = this.dynamicFieldsService.getDefaultFieldDefinitions(siteType);
+    }
+    
+    return result;
+  }
+
+  @Post('validate')
+  @ApiOperation({ summary: 'Valider les valeurs des champs dynamiques' })
+  @ApiResponse({
+    status: 200,
+    description: 'Validation effectuée avec succès'
+  })
+  validateDynamicFields(
+    @Body(ValidationPipe) validateDto: ValidateDynamicFieldsDto
+  ): { isValid: boolean; errors: string[] } {
+    return this.dynamicFieldsService.validateDynamicFields(
+      validateDto.fieldDefinitions,
+      validateDto.values
+    );
+  }
+
+  @Post('apply-defaults')
+  @ApiOperation({ summary: 'Appliquer les valeurs par défaut aux champs dynamiques' })
+  @ApiResponse({
+    status: 200,
+    description: 'Valeurs par défaut appliquées avec succès'
+  })
+  applyDefaultValues(
+    @Body() data: { fieldDefinitions: DynamicFieldDefinition[]; values?: Record<string, any> }
+  ): Record<string, any> {
+    return this.dynamicFieldsService.applyDefaultValues(
+      data.fieldDefinitions,
+      data.values
+    );
+  }
+
+  @Post('clean')
+  @ApiOperation({ summary: 'Nettoyer les valeurs dynamiques en supprimant les champs non définis' })
+  @ApiResponse({
+    status: 200,
+    description: 'Valeurs nettoyées avec succès'
+  })
+  cleanDynamicValues(
+    @Body() data: { fieldDefinitions: DynamicFieldDefinition[]; values: Record<string, any> }
+  ): Record<string, any> {
+    return this.dynamicFieldsService.cleanDynamicValues(
+      data.fieldDefinitions,
+      data.values
+    );
+  }
+
+  @Get('types')
+  @ApiOperation({ summary: 'Récupérer tous les types de sites disponibles' })
+  @ApiResponse({
+    status: 200,
+    description: 'Types de sites récupérés avec succès'
+  })
+  getSiteTypes(): { value: string; label: string }[] {
+    return Object.values(SiteTypes).map(type => ({
+      value: type,
+      label: this.getSiteTypeLabel(type)
+    }));
+  }
+
+  private getSiteTypeLabel(siteType: SiteTypes): string {
+    const labels: Record<SiteTypes, string> = {
+      [SiteTypes.TOUR]: 'Tour',
+      [SiteTypes.SHELTER]: 'Shelter',
+      [SiteTypes.PYLONE]: 'Pylône',
+      [SiteTypes.BATIMENT]: 'Bâtiment',
+      [SiteTypes.TOIT_BATIMENT]: 'Toit de bâtiment',
+      [SiteTypes.ROOFTOP]: 'Rooftop',
+      [SiteTypes.TERRAIN_BAILLE]: 'Terrain en bail',
+      [SiteTypes.TERRAIN_PROPRIETAIRE]: 'Terrain propriétaire',
+      [SiteTypes.AUTRE]: 'Autre'
+    };
+    
+    return labels[siteType] || siteType;
+  }
+} 

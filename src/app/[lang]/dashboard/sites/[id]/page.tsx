@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { use } from 'react'
 
 import { useRouter } from 'next/navigation'
 
@@ -39,10 +40,10 @@ import InfoIcon from '@mui/icons-material/Info'
 import ConstructionIcon from '@mui/icons-material/Construction'
 
 import { sitesService } from '@/services'
-import siteSpecificationsService from '@/services/siteSpecificationsService'
 import { SiteStatus } from '@/services/sitesService'
 import type { Site } from '@/services/sitesService'
 import { useAuth } from '@/hooks/useAuth'
+import DynamicFieldsForm from '@/components/DynamicFieldsForm'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -70,9 +71,10 @@ function TabPanel(props: TabPanelProps) {
   )
 }
 
-const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) => {
+const SiteDetailsPage = ({ params }: { params: Promise<{ id: string; lang: string }> }) => {
   const router = useRouter()
-  const lang = params.lang || 'fr'
+  const resolvedParams = use(params)
+  const lang = resolvedParams.lang || 'fr'
 
   const { 
     user, 
@@ -89,44 +91,27 @@ const SiteDetailsPage = ({ params }: { params: { id: string; lang: string } }) =
   const [tabValue, setTabValue] = useState(0)
   const [equipments, setEquipments] = useState<any[]>([])
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [siteType, setSiteType] = useState<any>(null)
 
   const fetchSite = async () => {
     try {
       setLoading(true)
-      const data = await sitesService.getSiteById(params.id)
+      const data = await sitesService.getSiteById(resolvedParams.id)
       
       // Vérifier si l'utilisateur peut accéder à ce site
       if (!canAccessDepartmentResource(data.departmentId || null)) {
         setError('Vous n\'avez pas l\'autorisation d\'accéder à ce site.')
-        
-return
+        return
       }
       
       setSite(data)
       
       // Charger les équipements du site
       try {
-        const equipmentData = await sitesService.getSiteEquipment(params.id)
-
+        const equipmentData = await sitesService.getSiteEquipment(resolvedParams.id)
         setEquipments(equipmentData)
       } catch (err) {
         console.error('Erreur lors du chargement des équipements:', err)
-
         // Ne pas bloquer l'affichage du site si les équipements ne sont pas chargés
-      }
-      
-      // Si le site a un type et que l'utilisateur peut voir les spécifications, charger les spécifications du type
-      if (data.type && canViewSpecifications()) {
-        try {
-          const specifications = await siteSpecificationsService.getSiteSpecificationsByType(data.type)
-
-          if (specifications && specifications.length > 0) {
-            setSiteType(specifications[0])
-          }
-        } catch (err) {
-          console.error('Erreur lors du chargement des spécifications du type:', err)
-        }
       }
       
     } catch (err: any) {
@@ -141,7 +126,7 @@ return
     if (!authLoading && user) {
       fetchSite()
     }
-  }, [params.id, authLoading, user])
+  }, [resolvedParams.id, authLoading, user])
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue)
@@ -185,7 +170,7 @@ return
   const handleDeleteConfirm = async () => {
     try {
       setLoading(true)
-      await sitesService.deleteSite(params.id)
+      await sitesService.deleteSite(resolvedParams.id)
       setDeleteDialogOpen(false)
       navigateToSitesList()
     } catch (err: any) {
@@ -495,44 +480,21 @@ return null
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  Spécifications spécifiques au type {site.type || 'Non défini'}
+                  Champs personnalisés
                 </Typography>
                 
-                {site.specifications && Object.keys(site.specifications).length > 0 ? (
-                  <TableContainer component={Paper}>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Nom</TableCell>
-                          <TableCell>Valeur</TableCell>
-                          {siteType && (
-                            <TableCell>Type</TableCell>
-                          )}
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {Object.entries(site.specifications).map(([key, value]) => {
-                          // Trouver le type de la colonne si disponible
-                          const columnDef = siteType?.columns?.find((col: any) => col.name === key);
-                          
-                          return (
-                            <TableRow key={key}>
-                              <TableCell>{key}</TableCell>
-                              <TableCell>{value !== null && value !== undefined ? String(value) : '-'}</TableCell>
-                              {siteType && (
-                                <TableCell>
-                                  {columnDef ? `${columnDef.type}${columnDef.length ? `(${columnDef.length})` : ''}` : '-'}
-                                </TableCell>
-                              )}
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                {site.customFieldsValues && Object.keys(site.customFieldsValues).length > 0 ? (
+                  <Box sx={{ mt: 2 }}>
+                    <DynamicFieldsForm
+                      values={site.customFieldsValues}
+                      onChange={() => {}} // Mode lecture seule
+                      readOnly={true}
+                      showTitle={false}
+                    />
+                  </Box>
                 ) : (
                   <Alert severity="info">
-                    Ce site n&apos;a pas de spécifications définies.
+                    Ce site n&apos;a pas de champs personnalisés définis.
                   </Alert>
                 )}
               </CardContent>

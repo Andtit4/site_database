@@ -9,8 +9,7 @@ import { Card, CardContent, CardHeader, Grid, Typography, Box, Button, Divider, 
 import { PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar } from 'recharts'
 
 import { equipmentService, teamsService, departmentsService } from '@/services'
-import siteSpecificationsService from '@/services/siteSpecificationsService'
-import { SiteStatus } from '@/services/sitesService'
+
 import { useAuth } from '@/hooks/useAuth'
 import { useSitesWithPermissions } from '@/hooks/useSitesWithPermissions'
 
@@ -68,8 +67,7 @@ const TelecomDashboardPage = () => {
         refreshSites(), // Charger les sites une fois
         equipmentService.getAllEquipment(),
         teamsService.getAllTeams(),
-        departmentsService.getAllDepartments(),
-        siteSpecificationsService.getAllSiteSpecifications()
+        departmentsService.getAllDepartments()
       ]
 
       const [, equipmentData, teamsData, departmentsData] = await Promise.all(promises)
@@ -130,24 +128,6 @@ return
   }, [sites])
 
   // Fonction updateSitesStats supprimée car elle n'est plus utilisée
-
-  // Fonction pour obtenir un libellé lisible pour les statuts
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case SiteStatus.ACTIVE:
-        return 'Actif'
-      case SiteStatus.MAINTENANCE:
-        return 'Maintenance'
-      case SiteStatus.INACTIVE:
-        return 'Inactif'
-      case SiteStatus.UNDER_CONSTRUCTION:
-        return 'En construction'
-      case SiteStatus.DELETED:
-        return 'Supprimé'
-      default:
-        return status
-    }
-  }
 
   // Afficher le loader pendant l'authentification
   if (authLoading) {

@@ -30,7 +30,7 @@ const navigation = (userData?: UserDataType): NavItemsType => {
       path: '/dashboard/departments'
     },
     {
-      title: 'Spécifications',
+      title: 'Configuration',
       icon: 'ri-settings-line',
       children: [
         {
@@ -40,6 +40,10 @@ const navigation = (userData?: UserDataType): NavItemsType => {
         {
           title: 'Spécifications de sites',
           path: '/dashboard/site-specifications'
+        },
+        {
+          title: 'Champs personnalisés des sites',
+          path: '/dashboard/custom-fields'
         }
       ]
     }

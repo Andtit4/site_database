@@ -22,21 +22,20 @@ const DebugPage = () => {
     try {
       addResult('=== TEST D\'AUTHENTIFICATION ===')
       
-      // Test 1: Vérifier le token
       const token = authService.getToken()
       addResult(`Token présent: ${!!token}`)
       if (token) {
         addResult(`Token (10 premiers chars): ${token.substring(0, 10)}...`)
       }
       
-      // Test 2: Vérifier l'utilisateur en cache
+      
       const cachedUser = authService.getCachedUser()
       addResult(`Utilisateur en cache: ${!!cachedUser}`)
       if (cachedUser) {
         addResult(`Utilisateur: ${cachedUser.username} (Admin: ${cachedUser.isAdmin})`)
       }
       
-      // Test 3: Tester /auth/me
+    
       addResult('Test de /auth/me...')
       try {
         const response = await api.get('/auth/me')

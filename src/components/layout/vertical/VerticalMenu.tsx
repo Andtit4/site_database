@@ -46,6 +46,7 @@ const VerticalMenu = ({ dictionary, scrollMenu }: { dictionary: Awaited<ReturnTy
   const theme = useTheme()
   const verticalNavOptions = useVerticalNav()
   const params = useParams()
+
   const { 
     user, 
     canViewEquipmentSpecifications, 
@@ -120,20 +121,23 @@ const VerticalMenu = ({ dictionary, scrollMenu }: { dictionary: Awaited<ReturnTy
           Départements
         </MenuItem>
 
-        {/* Spécifications */}
+        {/* Configuration */}
         {(canViewEquipmentSpecifications() || canViewSiteSpecifications()) && (
           <SubMenu 
-            label="Spécifications" 
-            icon={<i className='tabler-list-details' />}
+            label="Configuration" 
+            icon={<i className='tabler-settings' />}
           >
             {canViewEquipmentSpecifications() && (
-              <MenuItem href={`/${locale}/dashboard/specifications`}>Équipements</MenuItem>
+              <MenuItem href={`/${locale}/dashboard/specifications`}>Spécifications d'équipements</MenuItem>
             )}
             {canViewSiteSpecifications() && (
-              <MenuItem href={`/${locale}/dashboard/site-specifications`}>Sites</MenuItem>
+              <MenuItem href={`/${locale}/dashboard/site-specifications`}>Spécifications de sites</MenuItem>
             )}
             {canViewSiteSpecifications() && (
               <MenuItem href={`/${locale}/dashboard/departments-specifications`}>Par Département</MenuItem>
+            )}
+            {canViewSiteSpecifications() && (
+              <MenuItem href={`/${locale}/dashboard/custom-fields`}>Champs personnalisés des sites</MenuItem>
             )}
           </SubMenu>
         )}

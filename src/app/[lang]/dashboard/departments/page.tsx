@@ -66,14 +66,13 @@ const DepartmentsPage = () => {
   useEffect(() => {
     fetchDepartments()
     
-    // Ajouter un écouteur d'événement pour ouvrir le dialogue d'ajout depuis le menu
     const handleOpenAddDialog = () => {
       handleOpenDialog();
     };
     
     window.addEventListener('openAddDepartmentDialog', handleOpenAddDialog);
     
-    // Nettoyer l'écouteur d'événement lors du démontage du composant
+    // Nettoyer l'écouteur d'event
     return () => {
       window.removeEventListener('openAddDepartmentDialog', handleOpenAddDialog);
     };
@@ -115,7 +114,7 @@ const DepartmentsPage = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target
     
-    // Traitement spécial pour contactPhone: convertir en nombre ou undefined
+    //convertir en nombre ou undefined
     if (name === 'contactPhone') {
       const phoneValue = value as string;
       setFormData({
@@ -172,7 +171,7 @@ const DepartmentsPage = () => {
       }
       
       handleCloseDialog();
-      fetchDepartments(); // Recharger la liste
+      fetchDepartments(); 
     } catch (err: any) {
       console.error('Erreur lors de l\'enregistrement du département:', err);
       
@@ -196,7 +195,6 @@ const DepartmentsPage = () => {
         
         await departmentsService.deleteDepartment(id);
         
-        // Notification de succès
         if (departmentToDelete) {
           try {
             notificationService.notifyDepartmentDeleted(departmentName);

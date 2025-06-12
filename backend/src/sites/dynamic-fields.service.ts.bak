@@ -1,0 +1,377 @@
+import { Injectable } from '@nestjs/common';
+import { SiteTypes, DynamicFieldDefinition } from '../entities/site.entity';
+
+@Injectable()
+export class DynamicFieldsService {
+  
+  // Définitions par défaut des champs dynamiques pour chaque type de site
+  private readonly defaultFieldDefinitions: Record<SiteTypes, DynamicFieldDefinition[]> = {
+    [SiteTypes.TOUR]: [
+      {
+        name: 'hauteur',
+        type: 'number',
+        label: 'Hauteur (m)',
+        required: false,
+        validation: { min: 0, max: 200 }
+      },
+      {
+        name: 'nombreAntennes',
+        type: 'number',
+        label: 'Nombre d\'antennes',
+        required: false,
+        defaultValue: 0,
+        validation: { min: 0, max: 50 }
+      },
+      {
+        name: 'materiaux',
+        type: 'select',
+        label: 'Matériaux',
+        required: false,
+        options: ['Acier', 'Béton', 'Composite', 'Autre']
+      },
+      {
+        name: 'dateInstallation',
+        type: 'date',
+        label: 'Date d\'installation',
+        required: false
+      }
+    ],
+    
+    [SiteTypes.SHELTER]: [
+      {
+        name: 'surface',
+        type: 'number',
+        label: 'Surface (m²)',
+        required: false,
+        validation: { min: 0, max: 1000 }
+      },
+      {
+        name: 'capacite',
+        type: 'number',
+        label: 'Capacité équipements',
+        required: false,
+        defaultValue: 0
+      },
+      {
+        name: 'climatisation',
+        type: 'boolean',
+        label: 'Climatisation',
+        required: false,
+        defaultValue: false
+      },
+      {
+        name: 'securite',
+        type: 'select',
+        label: 'Niveau de sécurité',
+        required: false,
+        options: ['Basique', 'Standard', 'Renforcé', 'Maximum']
+      }
+    ],
+    
+    [SiteTypes.PYLONE]: [
+      {
+        name: 'hauteur',
+        type: 'number',
+        label: 'Hauteur (m)',
+        required: false,
+        validation: { min: 0, max: 300 }
+      },
+      {
+        name: 'charge',
+        type: 'number',
+        label: 'Charge maximale (kg)',
+        required: false,
+        validation: { min: 0 }
+      },
+      {
+        name: 'modele',
+        type: 'string',
+        label: 'Modèle',
+        required: false
+      },
+      {
+        name: 'foundation',
+        type: 'select',
+        label: 'Type de fondation',
+        required: false,
+        options: ['Béton', 'Acier', 'Mixte']
+      }
+    ],
+    
+    [SiteTypes.BATIMENT]: [
+      {
+        name: 'etages',
+        type: 'number',
+        label: 'Nombre d\'étages',
+        required: false,
+        defaultValue: 1,
+        validation: { min: 1, max: 100 }
+      },
+      {
+        name: 'surface',
+        type: 'number',
+        label: 'Surface totale (m²)',
+        required: false,
+        validation: { min: 0 }
+      },
+      {
+        name: 'accessToit',
+        type: 'boolean',
+        label: 'Accès au toit',
+        required: false,
+        defaultValue: false
+      },
+      {
+        name: 'typeConstruction',
+        type: 'select',
+        label: 'Type de construction',
+        required: false,
+        options: ['Béton', 'Acier', 'Brique', 'Mixte']
+      }
+    ],
+    
+    [SiteTypes.TOIT_BATIMENT]: [
+      {
+        name: 'surface',
+        type: 'number',
+        label: 'Surface disponible (m²)',
+        required: false,
+        validation: { min: 0 }
+      },
+      {
+        name: 'resistance',
+        type: 'number',
+        label: 'Résistance (kg/m²)',
+        required: false,
+        validation: { min: 0 }
+      },
+      {
+        name: 'accessibilite',
+        type: 'select',
+        label: 'Accessibilité',
+        required: false,
+        options: ['Facile', 'Modérée', 'Difficile']
+      },
+      {
+        name: 'protection',
+        type: 'boolean',
+        label: 'Protection météorologique',
+        required: false,
+        defaultValue: false
+      }
+    ],
+    
+    [SiteTypes.ROOFTOP]: [
+      {
+        name: 'surface',
+        type: 'number',
+        label: 'Surface (m²)',
+        required: false,
+        validation: { min: 0 }
+      },
+      {
+        name: 'accessibilite',
+        type: 'select',
+        label: 'Accessibilité',
+        required: false,
+        options: ['Excellente', 'Bonne', 'Modérée', 'Limitée']
+      },
+      {
+        name: 'hauteurBatiment',
+        type: 'number',
+        label: 'Hauteur du bâtiment (m)',
+        required: false,
+        validation: { min: 0 }
+      }
+    ],
+    
+    [SiteTypes.TERRAIN_BAILLE]: [
+      {
+        name: 'surface',
+        type: 'number',
+        label: 'Surface (m²)',
+        required: false,
+        validation: { min: 0 }
+      },
+      {
+        name: 'topographie',
+        type: 'select',
+        label: 'Topographie',
+        required: false,
+        options: ['Plat', 'Légère pente', 'Forte pente', 'Vallonné']
+      },
+      {
+        name: 'accessibilite',
+        type: 'select',
+        label: 'Accessibilité',
+        required: false,
+        options: ['Route pavée', 'Piste', 'Sentier', 'Difficile']
+      },
+      {
+        name: 'dureeBail',
+        type: 'number',
+        label: 'Durée du bail (années)',
+        required: false,
+        validation: { min: 1, max: 99 }
+      }
+    ],
+    
+    [SiteTypes.TERRAIN_PROPRIETAIRE]: [
+      {
+        name: 'surface',
+        type: 'number',
+        label: 'Surface (m²)',
+        required: false,
+        validation: { min: 0 }
+      },
+      {
+        name: 'description',
+        type: 'string',
+        label: 'Description',
+        required: false
+      },
+      {
+        name: 'usage',
+        type: 'select',
+        label: 'Usage autorisé',
+        required: false,
+        options: ['Commercial', 'Industriel', 'Résidentiel', 'Mixte']
+      }
+    ],
+    
+    [SiteTypes.AUTRE]: [
+      {
+        name: 'description',
+        type: 'string',
+        label: 'Description',
+        required: false
+      },
+      {
+        name: 'caracteristiques',
+        type: 'string',
+        label: 'Caractéristiques spéciales',
+        required: false
+      }
+    ]
+  };
+
+  /**
+   * Récupère les définitions de champs par défaut pour un type de site
+   */
+  getDefaultFieldDefinitions(siteType: SiteTypes): DynamicFieldDefinition[] {
+    return this.defaultFieldDefinitions[siteType] || [];
+  }
+
+  /**
+   * Valide les valeurs des champs dynamiques selon leurs définitions
+   */
+  validateDynamicFields(
+    fieldDefinitions: DynamicFieldDefinition[],
+    values: Record<string, any>
+  ): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    for (const field of fieldDefinitions) {
+      const value = values[field.name];
+
+      // Vérifier les champs requis
+      if (field.required && (value === undefined || value === null || value === '')) {
+        errors.push(`Le champ "${field.label}" est requis`);
+        continue;
+      }
+
+      // Si le champ n'est pas requis et vide, on continue
+      if (value === undefined || value === null || value === '') {
+        continue;
+      }
+
+      // Validation par type
+      switch (field.type) {
+        case 'number':
+          if (isNaN(Number(value))) {
+            errors.push(`Le champ "${field.label}" doit être un nombre`);
+          } else if (field.validation) {
+            const numValue = Number(value);
+            if (field.validation.min !== undefined && numValue < field.validation.min) {
+              errors.push(`Le champ "${field.label}" doit être supérieur ou égal à ${field.validation.min}`);
+            }
+            if (field.validation.max !== undefined && numValue > field.validation.max) {
+              errors.push(`Le champ "${field.label}" doit être inférieur ou égal à ${field.validation.max}`);
+            }
+          }
+          break;
+
+        case 'boolean':
+          if (typeof value !== 'boolean' && value !== 'true' && value !== 'false') {
+            errors.push(`Le champ "${field.label}" doit être un booléen`);
+          }
+          break;
+
+        case 'date':
+          if (isNaN(Date.parse(value))) {
+            errors.push(`Le champ "${field.label}" doit être une date valide`);
+          }
+          break;
+
+        case 'select':
+          if (field.options && !field.options.includes(value)) {
+            errors.push(`Le champ "${field.label}" doit être l'une des valeurs: ${field.options.join(', ')}`);
+          }
+          break;
+
+        case 'string':
+          if (typeof value !== 'string') {
+            errors.push(`Le champ "${field.label}" doit être une chaîne de caractères`);
+          } else if (field.validation?.pattern) {
+            const regex = new RegExp(field.validation.pattern);
+            if (!regex.test(value)) {
+              errors.push(`Le champ "${field.label}" ne respecte pas le format requis`);
+            }
+          }
+          break;
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
+   * Applique les valeurs par défaut aux champs dynamiques
+   */
+  applyDefaultValues(
+    fieldDefinitions: DynamicFieldDefinition[],
+    values: Record<string, any> = {}
+  ): Record<string, any> {
+    const result = { ...values };
+
+    for (const field of fieldDefinitions) {
+      if (result[field.name] === undefined && field.defaultValue !== undefined) {
+        result[field.name] = field.defaultValue;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Nettoie les valeurs dynamiques en supprimant les champs non définis
+   */
+  cleanDynamicValues(
+    fieldDefinitions: DynamicFieldDefinition[],
+    values: Record<string, any>
+  ): Record<string, any> {
+    const allowedFields = new Set(fieldDefinitions.map(f => f.name));
+    const result: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(values)) {
+      if (allowedFields.has(key)) {
+        result[key] = value;
+      }
+    }
+
+    return result;
+  }
+} 

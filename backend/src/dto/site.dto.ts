@@ -1,7 +1,6 @@
 import { IsString, IsNotEmpty, IsEnum, IsOptional, IsNumber, ValidateNested, IsArray, IsLatitude, IsLongitude, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SiteStatus } from '../entities/site.entity';
-import { SiteTypes } from '../site-specifications/dto/create-site-specification.dto';
 import { CreateEquipmentDto } from './equipment.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -78,22 +77,38 @@ export class CreateSiteDto {
   newBase?: string;
 
   @ApiPropertyOptional({
-    description: 'Type de site (pour les spécifications dynamiques)',
-    enum: SiteTypes,
-    example: SiteTypes.TOUR
+    description: 'Zone géographique du site',
+    example: 'Zone Nord'
   })
-  @IsEnum(SiteTypes)
+  @IsString()
   @IsOptional()
-  type?: string;
+  zone?: string;
 
   @ApiPropertyOptional({
-    description: 'Spécifications dynamiques du site selon son type',
+    description: 'Spécifications statiques du site',
     type: 'object',
-    example: { hauteur: 50, nbAntennes: 3 }
+    example: { description: 'Site principal' }
   })
   @IsObject()
   @IsOptional()
   specifications?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'Valeurs des champs personnalisés du site',
+    type: 'object',
+    example: { hauteur: 50, surface_totale: 120.5 }
+  })
+  @IsObject()
+  @IsOptional()
+  customFieldsValues?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'ID du département propriétaire du site',
+    example: 'dept-001'
+  })
+  @IsString()
+  @IsOptional()
+  departmentId?: string;
 
   @ApiPropertyOptional({
     description: 'Équipements à ajouter au site lors de la création',
@@ -175,22 +190,30 @@ export class UpdateSiteDto {
   newBase?: string;
 
   @ApiPropertyOptional({
-    description: 'Type de site (pour les spécifications dynamiques)',
-    enum: SiteTypes,
-    example: SiteTypes.TOUR
-  })
-  @IsEnum(SiteTypes)
-  @IsOptional()
-  type?: string;
-
-  @ApiPropertyOptional({
-    description: 'Spécifications dynamiques du site selon son type',
+    description: 'Spécifications statiques du site',
     type: 'object',
-    example: { hauteur: 50, nbAntennes: 3 }
+    example: { description: 'Site principal' }
   })
   @IsObject()
   @IsOptional()
   specifications?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'Valeurs des champs personnalisés du site',
+    type: 'object',
+    example: { hauteur: 50, surface_totale: 120.5 }
+  })
+  @IsObject()
+  @IsOptional()
+  customFieldsValues?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'ID du département propriétaire du site',
+    example: 'dept-001'
+  })
+  @IsString()
+  @IsOptional()
+  departmentId?: string;
 }
 
 export class SiteFilterDto {
@@ -219,7 +242,7 @@ export class SiteFilterDto {
   @IsEnum(SiteStatus, { each: true })
   @IsOptional()
   status?: SiteStatus[];
-  
+
   @ApiPropertyOptional({
     description: 'Inclure les sites marqués comme supprimés',
     default: false,

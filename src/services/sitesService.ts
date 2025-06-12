@@ -30,8 +30,8 @@ export interface Site {
   status: string;
   oldBase?: string;
   newBase?: string;
-  type?: string; // Type de site pour les spécifications dynamiques
   specifications?: Record<string, any>; // Spécifications dynamiques
+  customFieldsValues?: Record<string, any>; // Champs personnalisés
   departmentId?: string; // Ajout du département
   createdAt: Date;
   updatedAt: Date;
@@ -46,8 +46,8 @@ export interface CreateSiteDto {
   status: SiteStatus;
   oldBase?: string;
   newBase?: string;
-  type?: string; // Type de site pour les spécifications dynamiques
   specifications?: Record<string, any>; // Spécifications dynamiques
+  customFieldsValues?: Record<string, any>; // Champs personnalisés
   departmentId?: string; // Ajout du département
 }
 
@@ -60,8 +60,8 @@ export interface UpdateSiteDto {
   status?: SiteStatus;
   oldBase?: string;
   newBase?: string;
-  type?: string; // Type de site pour les spécifications dynamiques
   specifications?: Record<string, any>; // Spécifications dynamiques
+  customFieldsValues?: Record<string, any>; // Champs personnalisés
   departmentId?: string; // Ajout du département
 }
 
@@ -69,7 +69,6 @@ export interface SiteFilterDto {
   departmentId?: string;
   region?: string;
   status?: string;
-  type?: string;
   search?: string;
   showDeleted?: boolean;
 }
@@ -125,7 +124,6 @@ const getAllSites = async (filters: SiteFilterDto = {}): Promise<Site[]> => {
   if (filters.search) params.append('search', filters.search);
   if (filters.region) params.append('region', filters.region);
   if (filters.status) params.append('status', filters.status);
-  if (filters.type) params.append('type', filters.type);
   if (filters.showDeleted) params.append('includeDeleted', 'true');
 
   try {
