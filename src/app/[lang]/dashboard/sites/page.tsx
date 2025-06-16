@@ -57,8 +57,7 @@ const SitesPage = () => {
     loading: authLoading, 
     canViewAllResources, 
     canCreate, 
-    canEdit, 
-    canDelete,
+    canEdit,
     getUserDepartmentId 
   } = useAuth()
   
@@ -78,7 +77,6 @@ const SitesPage = () => {
     status: ''
   });
 
-  // Utiliser le hook personnalisé pour les sites avec gestion des permissions
   const { 
     sites, 
     loading, 
@@ -608,7 +606,7 @@ return null
                             Modifier
                           </Button>
                         )}
-                        {canDelete('site') && site.status !== SiteStatus.DELETED && (
+                        {user?.isAdmin && site.status !== SiteStatus.DELETED && (
                           <Button 
                             size="small" 
                             color="error" 

@@ -146,21 +146,6 @@ export const useAuth = () => {
     }
   }, [user?.isAdmin, user?.isDepartmentAdmin, user?.isTeamMember])
 
-  const canDelete = useCallback((resourceType: 'site' | 'team' | 'equipment'): boolean => {
-    if (!user) return false
-    
-    switch (resourceType) {
-      case 'site':
-        return user.isAdmin
-      case 'team':
-        return user.isAdmin
-      case 'equipment':
-        return user.isAdmin || user.isDepartmentAdmin
-      default:
-        return false
-    }
-  }, [user?.isAdmin, user?.isDepartmentAdmin])
-
   const getUserDepartmentId = useCallback((): string | null => {
     return user?.departmentId?.toString() || null
   }, [user?.departmentId])
@@ -194,7 +179,6 @@ export const useAuth = () => {
     canViewSpecifications,
     canCreate,
     canEdit,
-    canDelete,
     getUserDepartmentId,
     getUserTeamId,
     canAccessDepartmentResource,

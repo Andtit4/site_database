@@ -58,7 +58,6 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_DEPARTMENT_SITES,
     Permission.CREATE_SITE,
     Permission.EDIT_SITE,
-    Permission.DELETE_SITE,
     Permission.VIEW_SITE_SPECIFICATIONS,
     Permission.EDIT_SITE_SPECIFICATIONS,
     Permission.VIEW_DEPARTMENT_TEAMS,
@@ -75,6 +74,10 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_DEPARTMENT_SITES,
     Permission.VIEW_DEPARTMENT_TEAMS,
     Permission.VIEW_DEPARTMENT_EQUIPMENT,
+
+    // Permissions de base pour les sites
+    Permission.EDIT_SITE,
+    Permission.VIEW_SITE_SPECIFICATIONS,
   ]
 };
 
@@ -215,7 +218,8 @@ class PermissionsService {
     
     switch (resourceType) {
       case 'site':
-        return this.hasPermission(user, Permission.DELETE_SITE);
+        // Seuls les administrateurs peuvent supprimer des sites
+        return user.isAdmin;
       case 'team':
         return this.hasPermission(user, Permission.DELETE_TEAM);
       case 'equipment':

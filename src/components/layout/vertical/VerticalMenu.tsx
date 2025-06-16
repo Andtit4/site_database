@@ -6,11 +6,11 @@ import { useParams } from 'next/navigation'
 // MUI Imports
 import { useTheme } from '@mui/material/styles'
 
+
 // Third-party Imports
 import PerfectScrollbar from 'react-perfect-scrollbar'
 
 // Type Imports
-import type { getDictionary } from '@/utils/getDictionary'
 import type { VerticalMenuContextProps } from '@menu/components/vertical-menu/Menu'
 
 // Component Imports
@@ -41,7 +41,7 @@ const RenderExpandIcon = ({ open, transitionDuration }: RenderExpandIconProps) =
   </StyledVerticalNavExpandIcon>
 )
 
-const VerticalMenu = ({ dictionary, scrollMenu }: { dictionary: Awaited<ReturnType<typeof getDictionary>>; scrollMenu: (container: any, isPerfectScrollbar: boolean) => void }) => {
+const VerticalMenu = ({ scrollMenu }: { scrollMenu: (container: any, isPerfectScrollbar: boolean) => void }) => {
   // Hooks
   const theme = useTheme()
   const verticalNavOptions = useVerticalNav()
@@ -113,13 +113,15 @@ const VerticalMenu = ({ dictionary, scrollMenu }: { dictionary: Awaited<ReturnTy
           Équipes
         </MenuItem>
 
-        {/* Gestion des départements */}
-        <MenuItem 
-          href={`/${locale}/dashboard/departments`}
-          icon={<i className='tabler-building' />}
-        >
-          Départements
-        </MenuItem>
+        {/* Gestion des départements - uniquement pour les administrateurs */}
+        {user?.isAdmin && (
+          <MenuItem 
+            href={`/${locale}/dashboard/departments`}
+            icon={<i className='tabler-building' />}
+          >
+            Départements
+          </MenuItem>
+        )}
 
         {/* Configuration */}
         {(canViewEquipmentSpecifications() || canViewSiteSpecifications()) && (
@@ -128,7 +130,7 @@ const VerticalMenu = ({ dictionary, scrollMenu }: { dictionary: Awaited<ReturnTy
             icon={<i className='tabler-settings' />}
           >
             {canViewEquipmentSpecifications() && (
-              <MenuItem href={`/${locale}/dashboard/specifications`}>Spécifications d'équipements</MenuItem>
+              <MenuItem href={`/${locale}/dashboard/specifications`}>Spécifications d&apos;équipements</MenuItem>
             )}
             {canViewSiteSpecifications() && (
               <MenuItem href={`/${locale}/dashboard/site-specifications`}>Spécifications de sites</MenuItem>
@@ -151,6 +153,14 @@ const VerticalMenu = ({ dictionary, scrollMenu }: { dictionary: Awaited<ReturnTy
             Gestion des utilisateurs
           </MenuItem>
         )}
+
+        {/* Profil utilisateur */}
+        <MenuItem 
+          href={`/${locale}/dashboard/profile`}
+          icon={<i className='tabler-user-circle' />}
+        >
+          Mon Profil
+        </MenuItem>
       </Menu>
     </ScrollWrapper>
   )

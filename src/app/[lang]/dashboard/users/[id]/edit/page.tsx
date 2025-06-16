@@ -31,6 +31,8 @@ import usersService from '@/services/usersService'
 import departmentsService, { Department } from '@/services/departmentsService'
 import teamsService, { Team } from '@/services/teamsService'
 import { User } from '@/services/authService'
+import EditUserDialog from '@/views/apps/user/list/EditUserDialog'
+import { Permission } from '@/services/permissionsService'
 
 interface EditUserFormData {
   username: string
@@ -87,6 +89,7 @@ const EditUserPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !currentUser) {
@@ -293,6 +296,16 @@ const EditUserPage = () => {
     }
   }
 
+  const handlePermissionsSave = async (permissions: Permission[]) => {
+    try {
+      await usersService.updateUserPermissions(userId, permissions)
+      // Rafraîchir les données de l'utilisateur
+      fetchUser()
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour des permissions:', error)
+    }
+  }
+
   // Afficher le loader pendant l'authentification
   if (authLoading || pageLoading) {
     return (
@@ -329,292 +342,240 @@ const EditUserPage = () => {
   }
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+    <Box>
+      <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Button
+          variant="outlined"
           startIcon={<ArrowBack />}
           onClick={() => router.push(`/${lang}/dashboard/users`)}
-          sx={{ mr: 2 }}
         >
           Retour
         </Button>
         <Typography variant="h4">Modifier l'utilisateur</Typography>
-        {originalUser && (
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-            {originalUser.username}
-          </Typography>
-        )}
       </Box>
 
-      {/* Affichage des messages */}
-      {error && originalUser && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 4 }}>
           {error}
         </Alert>
       )}
 
       {success && (
-        <Alert severity="success" sx={{ mb: 3 }}>
+        <Alert severity="success" sx={{ mb: 4 }}>
           {success}
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit}>
-        <Grid container spacing={3}>
-          {/* Informations personnelles */}
-          <Grid item xs={12}>
-            <Paper elevation={1}>
-              <CardHeader 
-                title="Informations personnelles" 
-                avatar={<Person />}
-                sx={{ pb: 2 }}
-              />
-              <CardContent>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      name="username"
-                      label="Nom d'utilisateur"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      fullWidth
-                      required
-                      error={!!validationErrors.username}
-                      helperText={validationErrors.username}
-                    />
+      {pageLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={3}>
+            {/* Informations personnelles */}
+            <Grid item xs={12}>
+              <Paper elevation={1}>
+                <CardHeader 
+                  title="Informations personnelles" 
+                  avatar={<Person />}
+                  sx={{ pb: 2 }}
+                />
+                <CardContent>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        name="username"
+                        label="Nom d'utilisateur"
+                        value={formData.username}
+                        onChange={handleInputChange}
+                        fullWidth
+                        required
+                        error={!!validationErrors.username}
+                        helperText={validationErrors.username}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        name="email"
+                        label="Email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        fullWidth
+                        required
+                        error={!!validationErrors.email}
+                        helperText={validationErrors.email}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        name="firstName"
+                        label="Prénom"
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        fullWidth
+                        required
+                        error={!!validationErrors.firstName}
+                        helperText={validationErrors.firstName}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        name="lastName"
+                        label="Nom de famille"
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        fullWidth
+                        required
+                        error={!!validationErrors.lastName}
+                        helperText={validationErrors.lastName}
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      name="email"
-                      label="Email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      fullWidth
-                      required
-                      error={!!validationErrors.email}
-                      helperText={validationErrors.email}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      name="firstName"
-                      label="Prénom"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      fullWidth
-                      required
-                      error={!!validationErrors.firstName}
-                      helperText={validationErrors.firstName}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      name="lastName"
-                      label="Nom de famille"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      fullWidth
-                      required
-                      error={!!validationErrors.lastName}
-                      helperText={validationErrors.lastName}
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Paper>
-          </Grid>
+                </CardContent>
+              </Paper>
+            </Grid>
 
-          {/* Affectation organisationnelle */}
-          <Grid item xs={12}>
-            <Paper elevation={1}>
-              <CardHeader 
-                title="Affectation organisationnelle" 
-                avatar={<Business />}
-                sx={{ pb: 2 }}
-              />
-              <CardContent>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Département</InputLabel>
-                      <Select
-                        name="departmentId"
-                        value={formData.departmentId}
-                        onChange={handleSelectChange}
-                        label="Département"
-                        error={!!validationErrors.departmentId}
-                      >
-                        <MenuItem value="">
-                          <em>Aucun département</em>
-                        </MenuItem>
-                        {departments.map((dept) => (
-                          <MenuItem key={dept.id} value={dept.id}>
-                            {dept.name} ({dept.type})
+            {/* Département et Équipe */}
+            <Grid item xs={12}>
+              <Paper elevation={1}>
+                <CardHeader 
+                  title="Département et Équipe" 
+                  avatar={<Business />}
+                  sx={{ pb: 2 }}
+                />
+                <CardContent>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Département</InputLabel>
+                        <Select
+                          name="departmentId"
+                          value={formData.departmentId}
+                          onChange={handleSelectChange}
+                          label="Département"
+                          error={!!validationErrors.departmentId}
+                        >
+                          <MenuItem value="">
+                            <em>Aucun département</em>
                           </MenuItem>
-                        ))}
-                      </Select>
-                      {validationErrors.departmentId && (
-                        <FormHelperText error>
-                          {validationErrors.departmentId}
-                        </FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <FormControl fullWidth disabled={!formData.departmentId}>
-                      <InputLabel>Équipe</InputLabel>
-                      <Select
-                        name="teamId"
-                        value={formData.teamId}
-                        onChange={handleSelectChange}
-                        label="Équipe"
-                        error={!!validationErrors.teamId}
-                      >
-                        <MenuItem value="">
-                          <em>Aucune équipe</em>
-                        </MenuItem>
-                        {filteredTeams.map((team) => (
-                          <MenuItem key={team.id} value={team.id}>
-                            {team.name}
+                          {departments.map((dept) => (
+                            <MenuItem key={dept.id} value={dept.id}>
+                              {dept.name} ({dept.type})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {validationErrors.departmentId && (
+                          <FormHelperText error>
+                            {validationErrors.departmentId}
+                          </FormHelperText>
+                        )}
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth disabled={!formData.departmentId}>
+                        <InputLabel>Équipe</InputLabel>
+                        <Select
+                          name="teamId"
+                          value={formData.teamId}
+                          onChange={handleSelectChange}
+                          label="Équipe"
+                          error={!!validationErrors.teamId}
+                        >
+                          <MenuItem value="">
+                            <em>Aucune équipe</em>
                           </MenuItem>
+                          {filteredTeams.map((team) => (
+                            <MenuItem key={team.id} value={team.id}>
+                              {team.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {validationErrors.teamId && (
+                          <FormHelperText error>
+                            {validationErrors.teamId}
+                          </FormHelperText>
+                        )}
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Paper>
+            </Grid>
+
+            {/* Permissions des Sites */}
+            <Grid item xs={12}>
+              <Paper elevation={1}>
+                <CardHeader 
+                  title="Permissions des Sites" 
+                  avatar={<Security />}
+                  action={
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={() => setPermissionsDialogOpen(true)}
+                      startIcon={<Security />}
+                    >
+                      Modifier les Permissions
+                    </Button>
+                  }
+                  sx={{ pb: 2 }}
+                />
+                <CardContent>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        Permissions actuelles :
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {originalUser?.permissions?.map((permission) => (
+                          <Chip
+                            key={permission}
+                            label={permission}
+                            color="primary"
+                            variant="outlined"
+                            size="small"
+                          />
                         ))}
-                      </Select>
-                      {validationErrors.teamId && (
-                        <FormHelperText error>
-                          {validationErrors.teamId}
-                        </FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Paper>
-          </Grid>
-
-          {/* Rôles et permissions */}
-          <Grid item xs={12}>
-            <Paper elevation={1}>
-              <CardHeader 
-                title="Rôles et permissions" 
-                avatar={<Security />}
-                sx={{ pb: 2 }}
-              />
-              <CardContent>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={3}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          name="isDepartmentAdmin"
-                          checked={formData.isDepartmentAdmin}
-                          onChange={handleCheckboxChange}
-                        />
-                      }
-                      label="Administrateur de département"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          name="isTeamMember"
-                          checked={formData.isTeamMember}
-                          onChange={handleCheckboxChange}
-                        />
-                      }
-                      label="Membre d'équipe"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          name="hasDepartmentRights"
-                          checked={formData.hasDepartmentRights}
-                          onChange={handleCheckboxChange}
-                        />
-                      }
-                      label="Droits département"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          name="isActive"
-                          checked={formData.isActive}
-                          onChange={handleCheckboxChange}
-                        />
-                      }
-                      label="Compte actif"
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Paper>
-          </Grid>
-
-          {/* Types d'équipement gérés */}
-          <Grid item xs={12}>
-            <Paper elevation={1}>
-              <CardHeader 
-                title="Types d'équipement gérés" 
-                avatar={<Group />}
-                sx={{ pb: 2 }}
-              />
-              <CardContent>
-                <FormControl fullWidth>
-                  <InputLabel>Types d'équipement</InputLabel>
-                  <Select
-                    multiple
-                    value={formData.managedEquipmentTypes}
-                    onChange={handleEquipmentTypesChange}
-                    input={<OutlinedInput label="Types d'équipement" />}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {Array.isArray(selected) ? selected.map((value) => (
-                          <Chip key={value} label={value} />
-                        )) : null}
                       </Box>
-                    )}
-                  >
-                    {EQUIPMENT_TYPES.map((type) => (
-                      <MenuItem key={type} value={type}>
-                        {type}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <FormHelperText>
-                    Sélectionnez les types d'équipement que cet utilisateur peut gérer
-                  </FormHelperText>
-                </FormControl>
-              </CardContent>
-            </Paper>
-          </Grid>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Paper>
+            </Grid>
 
-          {/* Boutons d'action */}
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-              <Button
-                variant="outlined"
-                onClick={() => router.push(`/${lang}/users`)}
-                disabled={loading}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                startIcon={loading ? <CircularProgress size={20} /> : <Save />}
-                disabled={loading}
-              >
-                {loading ? 'Modification...' : 'Modifier l\'utilisateur'}
-              </Button>
-            </Box>
+            {/* Boutons d'action */}
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => router.push(`/${lang}/dashboard/users`)}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Save />}
+                  disabled={loading}
+                >
+                  {loading ? 'Enregistrement...' : 'Enregistrer'}
+                </Button>
+              </Box>
+            </Grid>
           </Grid>
-        </Grid>
-      </form>
+        </form>
+      )}
+
+      {/* Dialogue de Permissions */}
+      <EditUserDialog
+        open={permissionsDialogOpen}
+        onClose={() => setPermissionsDialogOpen(false)}
+        user={originalUser}
+        onSave={handlePermissionsSave}
+      />
     </Box>
   )
 }

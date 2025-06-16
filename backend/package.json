@@ -34,6 +34,8 @@
         "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/typeorm.config.ts",
         "migration:run:manual": "node utils/run-migration.js",
         "migrate:mysql-to-postgres": "node migrate-mysql-to-postgres.js",
+        "migrate:new-db": "node migrate-to-new-database.js",
+        "db:clean": "node reset-database-clean.js",
         "build:watch": "nest build --watch"
     },
     "dependencies": {

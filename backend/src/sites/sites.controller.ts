@@ -66,7 +66,7 @@ export class SitesController {
   @ApiResponse({ status: 400, description: 'Requête invalide' })
   @ApiResponse({ status: 401, description: 'Non autorisé' })
   @Patch(':id')
-  @UseGuards(AdminGuard)
+  @UseGuards(DepartmentAdminGuard)
   @UsePipes(new ValidationPipe({ transform: true }))
   update(@Param('id') id: string, @Body() updateSiteDto: UpdateSiteDto) {
     return this.sitesService.update(id, updateSiteDto);

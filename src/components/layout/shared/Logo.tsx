@@ -71,7 +71,16 @@ const Logo = ({ color }: { color?: CSSProperties['color'] }) => {
 
   return (
     <div className='flex items-center'>
-      <VuexyLogo className='text-2xl text-primary' />
+      <VuexyLogo 
+        width={32} 
+        height={32}
+        className='text-2xl text-primary'
+        style={{ 
+          maxWidth: '32px', 
+          maxHeight: '32px',
+          flexShrink: 0
+        }}
+      />
       <LogoText
         color={color}
         ref={logoTextRef}

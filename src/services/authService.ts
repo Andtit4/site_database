@@ -219,6 +219,75 @@ return this.currentUser;
     console.log('authService: Authentification nettoyée');
   }
 
+  // Mettre à jour le profil utilisateur
+  async updateProfile(profileData: Partial<User>): Promise<User> {
+    console.log('authService: Début de updateProfile');
+    
+    if (!this.isAuthenticated()) {
+      throw new Error('Non authentifié');
+    }
+
+    try {
+      const response = await api.patch('/users/profile', {
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        email: profileData.email,
+        username: profileData.username
+      });
+      
+      const updatedUserData = response.data;
+      
+      // Mettre à jour l'utilisateur dans le cache
+      const updatedUser: User = {
+        ...this.currentUser!,
+        firstName: updatedUserData.firstName,
+        lastName: updatedUserData.lastName,
+        email: updatedUserData.email,
+        username: updatedUserData.username
+      };
+      
+      this.setUser(updatedUser);
+      console.log('authService: Profil mis à jour avec succès');
+      
+      return updatedUser;
+    } catch (error: any) {
+      console.error('authService: Erreur lors de la mise à jour du profil:', error.message);
+      throw error;
+    }
+  }
+
+  // Changer le mot de passe
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    console.log('authService: Début de changePassword');
+    
+    if (!this.isAuthenticated()) {
+      throw new Error('Non authentifié');
+    }
+
+    try {
+      // D'abord vérifier l'ancien mot de passe en essayant de se connecter avec
+      await api.post('/auth/verify-password', {
+        username: this.currentUser?.username,
+        password: currentPassword
+      });
+
+      // Ensuite changer le mot de passe
+      await api.post('/users/change-password', {
+        password: newPassword
+      });
+      
+      console.log('authService: Mot de passe changé avec succès');
+    } catch (error: any) {
+      console.error('authService: Erreur lors du changement de mot de passe:', error.message);
+      
+      if (error.response?.status === 401) {
+        throw new Error('Mot de passe actuel incorrect');
+      }
+      
+      throw error;
+    }
+  }
+
   // Méthode de diagnostic
   diagnose(): void {
     console.log('=== DIAGNOSTIC AUTH SERVICE ===');

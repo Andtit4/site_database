@@ -1,8 +1,24 @@
 import api from './api';
 import { User, RegisterUserDto, UpdateUserDto } from './authService';
+import { Permission } from './permissionsService';
 
 export interface CreateUserDto extends RegisterUserDto {
   // Hérite de RegisterUserDto du authService
+}
+
+interface UpdateUserDto {
+  username?: string;
+  password?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  departmentId?: string;
+  teamId?: string;
+  isDepartmentAdmin?: boolean;
+  isTeamMember?: boolean;
+  hasDepartmentRights?: boolean;
+  managedEquipmentTypes?: string[];
+  isActive?: boolean;
 }
 
 class UsersService {
@@ -38,6 +54,11 @@ class UsersService {
 
   async createDepartmentUser(userData: CreateUserDto): Promise<User> {
     const response = await api.post('/auth/department/create', userData);
+    return response.data;
+  }
+
+  async updateUserPermissions(userId: string, permissions: Permission[]): Promise<User> {
+    const response = await api.patch(`/users/${userId}/permissions`, { permissions });
     return response.data;
   }
 }

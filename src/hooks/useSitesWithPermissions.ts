@@ -46,7 +46,8 @@ export const useSitesWithPermissions = (
       // Vérifier les permissions DIRECTEMENT (pas de fonction séparée)
       const hasAccess = user.isAdmin || 
                        (user.isDepartmentAdmin && user.departmentId) || 
-                       (user.isTeamMember && user.departmentId);
+                       (user.isTeamMember && user.departmentId) ||
+                       true; // Permettre l'accès à tous les utilisateurs authentifiés
       
       if (!hasAccess) {
         console.warn('Accès aux sites refusé - permissions insuffisantes');

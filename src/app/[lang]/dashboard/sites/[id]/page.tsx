@@ -81,7 +81,6 @@ const SiteDetailsPage = ({ params }: { params: Promise<{ id: string; lang: strin
     loading: authLoading, 
     canViewSpecifications, 
     canEdit, 
-    canDelete,
     canAccessDepartmentResource 
   } = useAuth()
   
@@ -158,7 +157,7 @@ return
 
   const handleDeleteClick = () => {
     // Vérifier les permissions avant de permettre la suppression
-    if (!canDelete('site')) {
+    if (!user?.isAdmin) {
       setError('Vous n\'avez pas l\'autorisation de supprimer ce site.')
       
 return
@@ -333,7 +332,7 @@ return null
               Modifier
             </Button>
           )}
-          {canDelete('site') && (
+          {user?.isAdmin && (
             <Button 
               startIcon={<DeleteIcon />} 
               color="error" 

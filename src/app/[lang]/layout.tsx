@@ -31,7 +31,12 @@ import '@assets/iconify-icons/generated-icons.css'
 export const metadata = {
   title: 'Site Database - Gestion des sites de télécommunications',
   description:
-    'Site Database - Application de gestion des sites, équipements et équipes de télécommunications. Interface moderne et intuitive pour la gestion complète de votre infrastructure.'
+    'Site Database - Application de gestion des sites, équipements et équipes de télécommunications. Interface moderne et intuitive pour la gestion complète de votre infrastructure.',
+  icons: {
+    icon: '/images/logo.png',
+    shortcut: '/images/logo.png',
+    apple: '/images/logo.png',
+  }
 }
 
 const RootLayout = async (props: ChildrenType & { params: Promise<{ lang: Locale }> }) => {
