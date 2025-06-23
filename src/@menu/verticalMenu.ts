@@ -37,10 +37,11 @@ const navigation = (userData?: UserDataType): NavItemsType => {
           title: 'Spécifications d\'équipements',
           path: '/dashboard/specifications'
         },
-        {
+
+        /* {
           title: 'Spécifications de sites',
           path: '/dashboard/site-specifications'
-        },
+        }, */
         {
           title: 'Champs personnalisés des sites',
           path: '/dashboard/custom-fields'

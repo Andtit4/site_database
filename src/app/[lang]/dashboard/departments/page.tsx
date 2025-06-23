@@ -1,17 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { 
-  Box, 
-  Button, 
-  Card, 
-  CardContent, 
-  Typography, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
   TableRow,
   Paper,
   Dialog,
@@ -26,7 +26,8 @@ import {
   Grid,
   Chip,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Alert
 } from '@mui/material'
 import { departmentsService, equipmentService } from '@/services'
 import { Department, DepartmentType, CreateDepartmentDto, UpdateDepartmentDto } from '@/services/departmentsService'
@@ -65,13 +66,13 @@ const DepartmentsPage = () => {
 
   useEffect(() => {
     fetchDepartments()
-    
+
     const handleOpenAddDialog = () => {
       handleOpenDialog();
     };
-    
+
     window.addEventListener('openAddDepartmentDialog', handleOpenAddDialog);
-    
+
     // Nettoyer l'écouteur d'event
     return () => {
       window.removeEventListener('openAddDepartmentDialog', handleOpenAddDialog);
@@ -113,7 +114,7 @@ const DepartmentsPage = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target
-    
+
     //convertir en nombre ou undefined
     if (name === 'contactPhone') {
       const phoneValue = value as string;
@@ -150,15 +151,15 @@ const DepartmentsPage = () => {
     if (!formData.name?.trim()) {
       errors.push('Le nom du département est requis')
     }
-    
+
     if (!formData.type?.trim()) {
       errors.push('Le type de département est requis')
     }
-    
+
     if (!formData.responsibleName?.trim()) {
       errors.push('Le nom du responsable est requis')
     }
-    
+
     if (!formData.contactEmail?.trim()) {
       errors.push('L\'email de contact est requis')
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
@@ -175,7 +176,7 @@ const DepartmentsPage = () => {
   const handleSubmit = async () => {
     // Valider le formulaire avant soumission
     const validationErrors = validateDepartmentForm()
-    
+
     if (validationErrors.length > 0) {
       setError(`Erreurs de validation: ${validationErrors.join(', ')}`)
       setTimeout(() => {
@@ -190,7 +191,7 @@ const DepartmentsPage = () => {
         const updateData: UpdateDepartmentDto = { ...formData }
         console.log("Mise à jour du département avec:", updateData);
         await departmentsService.updateDepartment(currentDepartment.id, updateData);
-        
+
         // Notification de mise à jour
         try {
           notificationService.notifyDepartmentUpdated(formData.name);
@@ -201,7 +202,7 @@ const DepartmentsPage = () => {
         // Création d'un nouveau département
         console.log("Création d'un nouveau département avec:", formData);
         await departmentsService.createDepartment(formData);
-        
+
         // Notification de création
         try {
           notificationService.notifyDepartmentCreated(formData.name);
@@ -209,17 +210,17 @@ const DepartmentsPage = () => {
           console.error('Erreur lors de la création de la notification:', notifError);
         }
       }
-      
+
       handleCloseDialog();
-      fetchDepartments(); 
+      fetchDepartments();
       setError(null); // Réinitialiser l'erreur
     } catch (err: any) {
       console.error('Erreur lors de l\'enregistrement du département:', err);
-      
+
       // Afficher un message d'erreur approprié
       const errorMessage = err.message || 'Erreur lors de l\'enregistrement du département';
       setError(errorMessage);
-      
+
       // Montrer l'erreur pendant 5 secondes puis effacer
       setTimeout(() => {
         setError(null);
@@ -233,9 +234,9 @@ const DepartmentsPage = () => {
         // Récupérer le nom du département avant suppression pour la notification
         const departmentToDelete = departments.find(dept => dept.id === id);
         const departmentName = departmentToDelete ? departmentToDelete.name : 'Inconnu';
-        
+
         await departmentsService.deleteDepartment(id);
-        
+
         if (departmentToDelete) {
           try {
             notificationService.notifyDepartmentDeleted(departmentName);
@@ -243,15 +244,15 @@ const DepartmentsPage = () => {
             console.error('Erreur lors de la création de la notification:', notifError);
           }
         }
-        
+
         fetchDepartments(); // Recharger la liste
       } catch (err: any) {
         console.error('Erreur lors de la suppression du département:', err);
-        
+
         // Afficher un message d'erreur approprié
         const errorMessage = err.message || 'Erreur lors de la suppression du département';
         setError(errorMessage);
-        
+
         // Montrer l'erreur pendant 5 secondes puis effacer
         setTimeout(() => {
           setError(null);
@@ -264,9 +265,7 @@ const DepartmentsPage = () => {
     return <Typography>Chargement des départements...</Typography>
   }
 
-  if (error) {
-    return <Typography color="error">{error}</Typography>
-  }
+
 
   return (
     <Box sx={{ p: 4 }}>
@@ -305,18 +304,18 @@ const DepartmentsPage = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip 
-                        label={department.isActive ? 'Actif' : 'Inactif'} 
-                        color={department.isActive ? 'success' : 'error'} 
-                        size="small" 
+                      <Chip
+                        label={department.isActive ? 'Actif' : 'Inactif'}
+                        color={department.isActive ? 'success' : 'error'}
+                        size="small"
                       />
                     </TableCell>
                     <TableCell>
                       {department.managedEquipmentTypes?.map((type, index) => (
-                        <Chip 
+                        <Chip
                           key={index}
-                          label={type} 
-                          size="small" 
+                          label={type}
+                          size="small"
                           sx={{ mr: 0.5, mb: 0.5 }}
                         />
                       ))}
@@ -342,6 +341,12 @@ const DepartmentsPage = () => {
           {currentDepartment ? 'Modifier le département' : 'Ajouter un département'}
         </DialogTitle>
         <DialogContent>
+          {/* Affichage des erreurs */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
               <TextField

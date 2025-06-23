@@ -52,15 +52,15 @@ import DynamicFieldsForm from '@/components/DynamicFieldsForm'
 const ITEMS_PER_PAGE = 10
 
 const SitesPage = () => {
-  const { 
-    user, 
-    loading: authLoading, 
-    canViewAllResources, 
-    canCreate, 
+  const {
+    user,
+    loading: authLoading,
+    canViewAllResources,
+    canCreate,
     canEdit,
-    getUserDepartmentId 
+    getUserDepartmentId
   } = useAuth()
-  
+
   const [error, setError] = useState<string | null>(null)
   const [openDialog, setOpenDialog] = useState(false)
   const [currentSite, setCurrentSite] = useState<Site | null>(null)
@@ -69,7 +69,7 @@ const SitesPage = () => {
   const [showDeleted, setShowDeleted] = useState(false);
   const [page, setPage] = useState(1);
   const [filterExpanded, setFilterExpanded] = useState(false);
-  
+
   // Filtres
   const [filterValues, setFilterValues] = useState({
     search: '',
@@ -77,12 +77,12 @@ const SitesPage = () => {
     status: ''
   });
 
-  const { 
-    sites, 
-    loading, 
-    error: sitesError, 
-    permissionError, 
-    refreshSites 
+  const {
+    sites,
+    loading,
+    error: sitesError,
+    permissionError,
+    refreshSites
   } = useSitesWithPermissions({
     filters: { showDeleted },
     autoFetch: false
@@ -140,7 +140,7 @@ const SitesPage = () => {
 
     window.addEventListener('openAddSiteDialog', handleOpenAddDialog);
     window.addEventListener('openSiteEditDialog', handleOpenEditDialog as EventListener);
-    
+
     return () => {
       window.removeEventListener('openAddSiteDialog', handleOpenAddDialog);
       window.removeEventListener('openSiteEditDialog', handleOpenEditDialog as EventListener);
@@ -152,27 +152,27 @@ const SitesPage = () => {
   // Utiliser useMemo pour calculer les sites filtrés au lieu d'un useEffect
   const filteredSites = useMemo(() => {
     let result = [...sites];
-    
+
     // Filtrer par recherche (nom, id)
     if (filterValues.search) {
       const searchTerm = filterValues.search.toLowerCase();
 
-      result = result.filter(site => 
-        site.name.toLowerCase().includes(searchTerm) || 
+      result = result.filter(site =>
+        site.name.toLowerCase().includes(searchTerm) ||
         site.id.toLowerCase().includes(searchTerm)
       );
     }
-    
+
     // Filtrer par région
     if (filterValues.region) {
       result = result.filter(site => site.region === filterValues.region);
     }
-    
+
     // Filtrer par statut
     if (filterValues.status) {
       result = result.filter(site => site.status === filterValues.status);
     }
-    
+
     return result;
   }, [sites, filterValues]);
 
@@ -212,14 +212,14 @@ const SitesPage = () => {
       })
     } else {
       setCurrentSite(null)
-      
+
       // Définir le département par défaut DIRECTEMENT ici
       const userDepartmentId = getUserDepartmentId()
 
-      const defaultDepartmentId = (userDepartmentId && !canViewAllResources()) 
-        ? userDepartmentId 
+      const defaultDepartmentId = (userDepartmentId && !canViewAllResources())
+        ? userDepartmentId
         : undefined
-      
+
       setFormData({
         id: '',
         name: '',
@@ -244,7 +244,7 @@ const SitesPage = () => {
     e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }> | SelectChangeEvent<string>
   ) => {
     const { name, value } = e.target
-    
+
     // Convertir les valeurs de longitude et latitude en nombres pour le formulaire
     if (name === 'longitude' || name === 'latitude') {
       setFormData({
@@ -268,11 +268,11 @@ const SitesPage = () => {
     if (!formData.id?.trim()) {
       errors.push('L\'ID du site est requis')
     }
-    
+
     if (!formData.name?.trim()) {
       errors.push('Le nom du site est requis')
     }
-    
+
     if (!formData.region?.trim()) {
       errors.push('La région est requise')
     }
@@ -300,11 +300,11 @@ const SitesPage = () => {
     try {
       // Valider le formulaire avant soumission
       const validationErrors = validateSiteForm()
-      
+
       if (validationErrors.length > 0) {
         setError(`Erreurs de validation: ${validationErrors.join(', ')}`)
-        
-return
+
+        return
       }
 
       // Convertir les coordonnées GPS en nombres
@@ -324,10 +324,10 @@ return
         customFieldsValues: formData.customFieldsValues,
         departmentId: formData.departmentId
       };
-      
+
       // Déboguer les données avant soumission
       console.log("Données du formulaire à soumettre:", JSON.stringify(formDataToSubmit));
-      
+
       if (currentSite) {
         // Mise à jour du site
         const updateData: UpdateSiteDto = {
@@ -459,8 +459,8 @@ return
   // Rediriger si l'utilisateur n'est pas authentifié
   if (!user) {
     router.push(`/${lang}/login`)
-    
-return null
+
+    return null
   }
 
   if (loading && sites.length === 0) {
@@ -482,8 +482,8 @@ return null
             }
             label="Afficher les sites supprimés"
           />
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             onClick={() => refreshSites({ showDeleted })}
             disabled={loading}
           >
@@ -497,10 +497,7 @@ return null
         </Box>
       </Box>
 
-      {/* Alertes d'erreur */}
-      {(error || sitesError) && (
-        <Alert severity="error" sx={{ mb: 2 }}>{error || sitesError}</Alert>
-      )}
+
 
       {/* Alerte pour les erreurs de permissions */}
       {permissionError && (
@@ -509,7 +506,7 @@ return null
             Accès limité aux données des sites
           </Typography>
           <Typography variant="body2">
-            Votre compte n&apos;a pas les permissions nécessaires pour accéder aux données des sites depuis le serveur. 
+            Votre compte n&apos;a pas les permissions nécessaires pour accéder aux données des sites depuis le serveur.
             Veuillez contacter votre administrateur système pour obtenir les autorisations nécessaires.
             {!canViewAllResources() && (
               <> Vous devriez normalement pouvoir accéder aux sites de votre département.</>
@@ -525,8 +522,8 @@ return null
             <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
               <FilterListIcon sx={{ mr: 1 }} /> Filtres
             </Typography>
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               onClick={() => setFilterExpanded(!filterExpanded)}
             >
               {filterExpanded ? 'Réduire' : 'Développer'}
@@ -628,8 +625,8 @@ return null
                       </TableCell>
                       <TableCell>
                         {canEdit('site') && (
-                          <Button 
-                            size="small" 
+                          <Button
+                            size="small"
                             onClick={() => handleOpenDialog(site)}
                             disabled={site.status === SiteStatus.DELETED}
                             sx={{ mr: 1 }}
@@ -638,9 +635,9 @@ return null
                           </Button>
                         )}
                         {user?.isAdmin && site.status !== SiteStatus.DELETED && (
-                          <Button 
-                            size="small" 
-                            color="error" 
+                          <Button
+                            size="small"
+                            color="error"
                             onClick={() => handleOpenDeleteDialog(site.id)}
                             sx={{ mr: 1 }}
                           >
@@ -648,18 +645,18 @@ return null
                           </Button>
                         )}
                         {canEdit('site') && site.status === SiteStatus.DELETED && (
-                          <Button 
-                            size="small" 
-                            color="success" 
+                          <Button
+                            size="small"
+                            color="success"
                             onClick={() => handleRestore(site.id)}
                             sx={{ mr: 1 }}
                           >
                             Restaurer
                           </Button>
                         )}
-                        <Button 
-                          size="small" 
-                          color="primary" 
+                        <Button
+                          size="small"
+                          color="primary"
                           onClick={() => navigateToSiteDetails(site.id)}
                         >
                           Détails
@@ -692,6 +689,10 @@ return null
         <DialogTitle>{currentSite ? 'Modifier le site' : 'Ajouter un site'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* Alertes d'erreur */}
+            {(error || sitesError) && (
+              <Alert severity="error" sx={{ mb: 2 }}>{error || sitesError}</Alert>
+            )}
             <Grid item xs={12} md={6}>
               <TextField
                 name="id"

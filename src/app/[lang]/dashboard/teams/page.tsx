@@ -1,17 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { 
-  Box, 
-  Button, 
-  Card, 
-  CardContent, 
-  Typography, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
   TableRow,
   Paper,
   Dialog,
@@ -38,16 +38,16 @@ import { useAuth } from '@/hooks/useAuth'
 import { useRouter, useParams } from 'next/navigation'
 
 const TeamsPage = () => {
-  const { 
-    user, 
-    loading: authLoading, 
-    canViewAllResources, 
-    canCreate, 
-    canEdit, 
+  const {
+    user,
+    loading: authLoading,
+    canViewAllResources,
+    canCreate,
+    canEdit,
     canDelete,
-    getUserDepartmentId 
+    getUserDepartmentId
   } = useAuth()
-  
+
   const [teams, setTeams] = useState<Team[]>([])
   const [departments, setDepartments] = useState<any[]>([])
   const [sites, setSites] = useState<any[]>([])
@@ -79,10 +79,10 @@ const TeamsPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
-      
+
       // Préparer les filtres selon les permissions de l'utilisateur
       const teamFilterDto: TeamFilterDto = { ...filterData }
-      
+
       // Si l'utilisateur ne peut pas voir toutes les ressources, filtrer par département
       if (!canViewAllResources()) {
         const userDepartmentId = getUserDepartmentId()
@@ -97,7 +97,7 @@ const TeamsPage = () => {
           return
         }
       }
-      
+
       const [teamsData, departmentsData, sitesData] = await Promise.all([
         teamsService.getAllTeams(teamFilterDto),
         departmentsService.getAllDepartments(),
@@ -119,7 +119,7 @@ const TeamsPage = () => {
       fetchData()
     }
   }, [filterData, authLoading, user])
-  
+
   useEffect(() => {
     // Ajouter un écouteur d'événement pour ouvrir le dialogue d'ajout depuis le menu
     const handleOpenAddDialog = () => {
@@ -127,9 +127,9 @@ const TeamsPage = () => {
         handleOpenDialog();
       }
     };
-    
+
     window.addEventListener('openAddTeamDialog', handleOpenAddDialog);
-    
+
     // Nettoyer l'écouteur d'événement lors du démontage du composant
     return () => {
       window.removeEventListener('openAddTeamDialog', handleOpenAddDialog);
@@ -153,7 +153,7 @@ const TeamsPage = () => {
       setError('Vous n\'avez pas l\'autorisation de modifier cette équipe.')
       return
     }
-    
+
     if (!team && !canCreate('team')) {
       setError('Vous n\'avez pas l\'autorisation de créer une équipe.')
       return
@@ -202,11 +202,12 @@ const TeamsPage = () => {
 
   const handleCloseDialog = () => {
     setOpenDialog(false)
+    setError(null) // Réinitialiser l'erreur lors de la fermeture
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target
-    
+
     // Traitement spécial pour memberCount
     if (name === 'memberCount') {
       setFormData({
@@ -231,7 +232,7 @@ const TeamsPage = () => {
   const handleEquipmentTypeChange = (event: React.ChangeEvent<{ value: unknown }>) => {
     const selectedTypes = event.target.value as string[];
     console.log("Types d'équipement sélectionnés:", selectedTypes);
-    
+
     setFormData({
       ...formData,
       equipmentTypes: selectedTypes,
@@ -239,24 +240,65 @@ const TeamsPage = () => {
     });
   }
 
+  const validateTeamForm = () => {
+    const errors: string[] = []
+
+    // Vérifier les champs obligatoires
+    if (!formData.name?.trim()) {
+      errors.push('Le nom de l\'équipe est requis')
+    }
+
+    if (!formData.departmentId?.trim()) {
+      errors.push('Le département est requis')
+    }
+
+    if (!formData.leadName?.trim()) {
+      errors.push('Le nom du responsable est requis')
+    }
+
+    if (!formData.leadContact?.trim()) {
+      errors.push('Le contact du responsable est requis')
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.leadContact) && !/^\+?[\d\s\-\(\)]+$/.test(formData.leadContact)) {
+      errors.push('Le contact du responsable doit être un email ou un numéro de téléphone valide')
+    }
+
+    if (formData.memberCount < 0) {
+      errors.push('Le nombre de membres ne peut pas être négatif')
+    }
+
+    if (!formData.status?.trim()) {
+      errors.push('Le statut est requis')
+    }
+
+    return errors
+  }
+
   const handleSubmit = async () => {
+    // Valider le formulaire avant soumission
+    const validationErrors = validateTeamForm()
+
+    if (validationErrors.length > 0) {
+      setError(`Erreurs de validation: ${validationErrors.join(', ')}`)
+      return
+    }
+
     try {
       const dataToSend = {
         ...formData,
         // S'assurer que le type principal est défini si des types sont sélectionnés
-        equipmentType: formData.equipmentTypes && formData.equipmentTypes.length > 0 
-          ? formData.equipmentTypes[0] 
+        equipmentType: formData.equipmentTypes && formData.equipmentTypes.length > 0
+          ? formData.equipmentTypes[0]
           : formData.equipmentType || '',
       };
-      
+
       console.log("Données à envoyer:", dataToSend);
-      
+
       // Trouver le nom du département
       const departmentName = departments.find(dept => dept.id === dataToSend.departmentId)?.name || 'Inconnu';
-      
+
       if (currentTeam) {
         // Mise à jour de l'équipe
-        const updateData: UpdateTeamDto = { 
+        const updateData: UpdateTeamDto = {
           name: dataToSend.name,
           description: dataToSend.description,
           status: dataToSend.status,
@@ -271,19 +313,20 @@ const TeamsPage = () => {
           departmentId: dataToSend.departmentId
         }
         await teamsService.updateTeam(currentTeam.id, updateData);
-        
+
         // Ajouter une notification pour la mise à jour
         notificationService.notifyTeamUpdated(dataToSend.name, departmentName);
       } else {
         // Création d'une nouvelle équipe
         await teamsService.createTeam(dataToSend);
-        
+
         // Ajouter une notification pour la création
         notificationService.notifyTeamCreated(dataToSend.name, departmentName);
       }
-      
+
       handleCloseDialog()
       fetchData() // Recharger la liste
+      setError(null) // Réinitialiser l'erreur
     } catch (err: any) {
       console.error('Erreur lors de l\'enregistrement de l\'équipe:', err)
       setError(err.message || 'Erreur lors de l\'enregistrement de l\'équipe')
@@ -296,23 +339,23 @@ const TeamsPage = () => {
       setError('Vous n\'avez pas l\'autorisation de supprimer cette équipe.')
       return
     }
-    
+
     if (confirm('Êtes-vous sûr de vouloir supprimer cette équipe?')) {
       try {
         // Récupérer les informations de l'équipe avant suppression
         const teamToDelete = teams.find(team => team.id === id);
         if (teamToDelete) {
           const departmentName = departments.find(dept => dept.id === teamToDelete.departmentId)?.name || 'Inconnu';
-          
+
           // Supprimer l'équipe
           await teamsService.deleteTeam(id);
-          
+
           // Ajouter une notification pour la suppression
           notificationService.notifyTeamDeleted(teamToDelete.name, departmentName);
         } else {
           await teamsService.deleteTeam(id);
         }
-        
+
         fetchData() // Recharger la liste
       } catch (err) {
         console.error('Erreur lors de la suppression de l\'équipe:', err)
@@ -377,13 +420,7 @@ const TeamsPage = () => {
     )
   }
 
-  if (error) {
-    return (
-      <Box sx={{ p: 4 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    )
-  }
+
 
   return (
     <Box sx={{ p: 4 }}>
@@ -489,10 +526,10 @@ const TeamsPage = () => {
                     <TableCell>{team.name}</TableCell>
                     <TableCell>{getDepartmentName(team.departmentId)}</TableCell>
                     <TableCell>
-                      <Chip 
-                        label={team.status} 
-                        color={getStatusColor(team.status) as any} 
-                        size="small" 
+                      <Chip
+                        label={team.status}
+                        color={getStatusColor(team.status) as any}
+                        size="small"
                       />
                     </TableCell>
                     <TableCell>{team.leadName || '-'}</TableCell>
@@ -510,8 +547,8 @@ const TeamsPage = () => {
                     </TableCell>
                     <TableCell>
                       {canEdit('team') && (
-                        <Button 
-                          size="small" 
+                        <Button
+                          size="small"
                           onClick={() => handleOpenDialog(team)}
                           sx={{ mr: 1 }}
                         >
@@ -519,9 +556,9 @@ const TeamsPage = () => {
                         </Button>
                       )}
                       {canDelete('team') && (
-                        <Button 
-                          size="small" 
-                          color="error" 
+                        <Button
+                          size="small"
+                          color="error"
                           onClick={() => handleDelete(team.id)}
                         >
                           Supprimer
@@ -548,6 +585,12 @@ const TeamsPage = () => {
           {currentTeam ? 'Modifier l\'équipe' : 'Ajouter une équipe'}
         </DialogTitle>
         <DialogContent>
+          {/* Affichage des erreurs */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
               <TextField
@@ -668,7 +711,7 @@ const TeamsPage = () => {
                 onChange={handleInputChange}
               />
             </Grid>
-            
+
             {!currentTeam && (
               <>
                 <Grid item xs={12}>
@@ -734,7 +777,19 @@ const TeamsPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Annuler</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            color="primary"
+            disabled={
+              !formData.name?.trim() ||
+              !formData.departmentId?.trim() ||
+              !formData.leadName?.trim() ||
+              !formData.leadContact?.trim() ||
+              !formData.status?.trim() ||
+              formData.memberCount < 0
+            }
+          >
             {currentTeam ? 'Mettre à jour' : 'Ajouter'}
           </Button>
         </DialogActions>

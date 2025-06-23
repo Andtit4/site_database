@@ -1,18 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+
 import { useSearchParams } from 'next/navigation'
-import { 
-  Box, 
-  Button, 
-  Card, 
-  CardContent, 
-  Typography, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
+
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
   TableRow,
   Paper,
   Dialog,
@@ -26,27 +28,26 @@ import {
   MenuItem,
   Grid,
   Chip,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Tabs,
-  Tab
+  Alert
 } from '@mui/material'
-import { 
-  equipmentService, 
+
+import {
+  equipmentService,
   sitesService,
   departmentsService,
   specificationsService
 } from '@/services'
-import { 
-  Equipment, 
-  EquipmentStatus, 
-  CreateEquipmentDto, 
+import type {
+  Equipment,
+  CreateEquipmentDto,
   UpdateEquipmentDto,
   EquipmentFilterDto
+} from '@/services/equipmentService';
+import {
+  EquipmentStatus
 } from '@/services/equipmentService'
+import type { Specification } from '@/services/specificationsService';
 import { EquipmentTypes } from '@/services/specificationsService'
-import { Specification } from '@/services/specificationsService'
 
 const EquipmentPage = () => {
   const searchParams = useSearchParams()
@@ -60,6 +61,7 @@ const EquipmentPage = () => {
   const [openDialog, setOpenDialog] = useState(false)
   const [currentEquipment, setCurrentEquipment] = useState<Equipment | null>(null)
   const [filterValues, setFilterValues] = useState<EquipmentFilterDto>({})
+
   const [formData, setFormData] = useState<CreateEquipmentDto>({
     id: crypto.randomUUID(),
     type: EquipmentTypes.ANTENNE,
@@ -73,12 +75,14 @@ const EquipmentPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
+
       const [equipmentData, sitesData, departmentsData, specificationsData] = await Promise.all([
         equipmentService.getAllEquipment(filterValues),
         sitesService.getAllSites(),
         departmentsService.getAllDepartments(),
         specificationsService.getAllSpecifications()
       ])
+
       setEquipment(equipmentData)
       setSites(sitesData)
       setDepartments(departmentsData)
@@ -93,14 +97,14 @@ const EquipmentPage = () => {
 
   useEffect(() => {
     fetchData()
-    
+
     // Ajouter un écouteur d'événement pour ouvrir le dialogue d'ajout depuis le menu
     const handleOpenAddDialog = () => {
       handleOpenDialog();
     };
-    
+
     window.addEventListener('openAddEquipmentDialog', handleOpenAddDialog);
-    
+
     // Nettoyer l'écouteur d'événement lors du démontage du composant
     return () => {
       window.removeEventListener('openAddEquipmentDialog', handleOpenAddDialog);
@@ -111,10 +115,11 @@ const EquipmentPage = () => {
   useEffect(() => {
     const shouldCreate = searchParams.get('create')
     const idFromUrl = searchParams.get('id')
-    
+
     if (shouldCreate === 'true' && idFromUrl && sites.length > 0) {
       setCurrentEquipment(null)
       const defaultSiteId = sites.length > 0 ? sites[0].id : '';
+
       setFormData({
         id: idFromUrl, // Utiliser l'ID de l'URL
         type: EquipmentTypes.ANTENNE,
@@ -127,9 +132,10 @@ const EquipmentPage = () => {
         specifications: {}
       })
       setOpenDialog(true)
-      
+
       // Nettoyer les paramètres d'URL après ouverture du dialogue
       const url = new URL(window.location.href)
+
       url.searchParams.delete('create')
       url.searchParams.delete('id')
       window.history.replaceState({}, '', url.toString())
@@ -140,8 +146,9 @@ const EquipmentPage = () => {
   useEffect(() => {
     if (formData.type) {
       const spec = specifications.find(s => s.equipmentType === formData.type);
+
       setCurrentSpecification(spec || null);
-      
+
       // Réinitialiser les spécifications lorsque le type change
       if (formData.specifications && Object.keys(formData.specifications).length > 0) {
         setFormData({
@@ -171,8 +178,10 @@ const EquipmentPage = () => {
       })
     } else {
       setCurrentEquipment(null)
+
       // Initialiser avec le premier site disponible
       const defaultSiteId = sites.length > 0 ? sites[0].id : '';
+
       setFormData({
         id: crypto.randomUUID(),
         type: EquipmentTypes.ANTENNE,
@@ -183,6 +192,7 @@ const EquipmentPage = () => {
         specifications: {}
       })
     }
+
     setOpenDialog(true)
   }
 
@@ -192,6 +202,7 @@ const EquipmentPage = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target
+
     setFormData({
       ...formData,
       [name as string]: value
@@ -222,15 +233,15 @@ const EquipmentPage = () => {
     if (!formData.type?.trim()) {
       errors.push('Le type d\'équipement est requis')
     }
-    
+
     if (!formData.model?.trim()) {
       errors.push('Le modèle est requis')
     }
-    
+
     if (!formData.siteId?.trim()) {
       errors.push('Le site est requis')
     }
-    
+
     if (!formData.status?.trim()) {
       errors.push('Le statut est requis')
     }
@@ -241,16 +252,17 @@ const EquipmentPage = () => {
   const handleSubmit = async () => {
     // Valider le formulaire avant soumission
     const validationErrors = validateEquipmentForm()
-    
+
     if (validationErrors.length > 0) {
       setError(`Erreurs de validation: ${validationErrors.join(', ')}`)
+
       return
     }
 
     try {
       if (currentEquipment) {
         // Mise à jour de l'équipement
-        const updateData: UpdateEquipmentDto = { 
+        const updateData: UpdateEquipmentDto = {
           type: formData.type,
           model: formData.model,
           serialNumber: formData.serialNumber,
@@ -263,12 +275,13 @@ const EquipmentPage = () => {
           departmentId: formData.departmentId,
           teamId: formData.teamId
         }
+
         await equipmentService.updateEquipment(currentEquipment.id, updateData)
       } else {
         // Création d'un nouvel équipement
         await equipmentService.createEquipment(formData)
       }
-      
+
       handleCloseDialog()
       fetchData() // Recharger la liste
       setError(null) // Réinitialiser l'erreur
@@ -311,9 +324,7 @@ const EquipmentPage = () => {
     return <Typography>Chargement des équipements...</Typography>
   }
 
-  if (error) {
-    return <Typography color="error">{error}</Typography>
-  }
+
 
   return (
     <Box sx={{ p: 4 }}>
@@ -429,15 +440,15 @@ const EquipmentPage = () => {
                         {departments.find(dept => dept.id === equip.departmentId)?.name || '-'}
                       </TableCell>
                       <TableCell>
-                        <Chip 
-                          label={equip.status} 
-                          color={getStatusColor(equip.status) as any} 
-                          size="small" 
+                        <Chip
+                          label={equip.status}
+                          color={getStatusColor(equip.status) as any}
+                          size="small"
                         />
                       </TableCell>
                       <TableCell>
-                        {equip.installDate 
-                          ? new Date(equip.installDate).toLocaleDateString() 
+                        {equip.installDate
+                          ? new Date(equip.installDate).toLocaleDateString()
                           : '-'}
                       </TableCell>
                       <TableCell>
@@ -462,6 +473,12 @@ const EquipmentPage = () => {
           {currentEquipment ? 'Modifier l\'équipement' : 'Ajouter un équipement'}
         </DialogTitle>
         <DialogContent>
+          {/* Affichage des erreurs */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
               <TextField
@@ -634,9 +651,9 @@ const EquipmentPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Annuler</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained" 
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
             color="primary"
             disabled={!formData.type?.trim() || !formData.model?.trim() || !formData.siteId?.trim() || !formData.status?.trim()}
           >
