@@ -9,6 +9,9 @@ import Cookies from 'js-cookie'
 import type { Locale } from '@configs/i18n'
 import type { ChildrenType } from '@core/types'
 
+// Service Imports
+import authService from '@/services/authService'
+
 // Loader component for authentication check
 const LoadingComponent = () => (
   <div style={{ 
@@ -66,12 +69,26 @@ const AuthGuard = ({ children, locale }: ChildrenType & { locale: Locale }) => {
           return;
         }
         
-        // Vérifier si le token d'authentification existe dans localStorage (cohérent avec authService)
+        // Vérifier si le token d'authentification existe et n'est pas expiré
         const authToken = localStorage.getItem('auth_token')
         console.log('AuthGuard: Token trouvé?', !!authToken);
         
         if (authToken) {
-          setIsAuthenticated(true)
+          // Vérifier si le token n'est pas expiré
+          if (!authService.isTokenExpired()) {
+            setIsAuthenticated(true)
+            
+            // Démarrer la validation périodique du token
+            authService.startTokenValidation();
+          } else {
+            console.log('AuthGuard: Token expiré, nettoyage et redirection');
+            authService.clearAuth()
+            setIsAuthenticated(false)
+            
+            // Rediriger vers la page de connexion
+            console.log('AuthGuard: Redirection vers', `/${locale}/auth/login`);
+            router.push(`/${locale}/auth/login`)
+          }
         } else {
           setIsAuthenticated(false)
           

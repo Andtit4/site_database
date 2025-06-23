@@ -4,6 +4,19 @@ import type { NextRequest } from 'next/server'
 // Tableau des routes qui ne nécessitent pas d'authentification
 const publicRoutes = ['/auth/login', '/auth/register', '/auth/forgot-password', '/assets/', '/images/']
 
+// Fonction pour vérifier si un token JWT est expiré
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    
+    return payload.exp && payload.exp < currentTime;
+  } catch (error) {
+    console.error('Middleware: Erreur lors de la vérification d\'expiration du token:', error);
+    return true; // En cas d'erreur, considérer le token comme expiré
+  }
+}
+
 export function middleware(request: NextRequest) {
   const authToken = request.cookies.get('token')?.value
   const url = request.nextUrl.clone()
@@ -38,8 +51,21 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`/${lang}/auth/login`, request.url))
   }
 
-  // Si l'utilisateur est authentifié, permettre l'accès à toutes les routes
-  console.log('Utilisateur authentifié, accès autorisé');
+  // Vérifier si le token est expiré
+  if (isTokenExpired(authToken)) {
+    console.log('Middleware: Token expiré, redirection vers login');
+    
+    // Créer une réponse de redirection avec suppression du cookie
+    const response = NextResponse.redirect(new URL(`/${lang}/auth/login`, request.url))
+    
+    // Supprimer le cookie de token expiré
+    response.cookies.set('token', '', { expires: new Date(0), path: '/' })
+    
+    return response
+  }
+
+  // Si l'utilisateur est authentifié avec un token valide, permettre l'accès à toutes les routes
+  console.log('Utilisateur authentifié avec token valide, accès autorisé');
   return NextResponse.next()
 }
 

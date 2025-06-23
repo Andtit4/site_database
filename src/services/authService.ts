@@ -89,6 +89,10 @@ class AuthService {
   // Déconnexion
   logout(): void {
     console.log('authService: Déconnexion');
+    
+    // Arrêter la validation du token
+    this.stopTokenValidation();
+    
     this.clearAuth();
   }
 
@@ -306,6 +310,70 @@ return this.currentUser;
     console.log('Cookie token présent:', Boolean(cookieToken));
     console.log('Cookie token value:', cookieToken?.substring(0, 20) + '...');
     console.log('================================');
+  }
+
+  // Vérification de l'expiration du token
+  isTokenExpired(): boolean {
+    const token = this.getToken();
+
+    if (!token) return true;
+
+    try {
+      // Décoder le token JWT pour vérifier l'expiration
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      return payload.exp && payload.exp < currentTime;
+    } catch (error) {
+      console.error('authService: Erreur lors de la vérification d\'expiration du token:', error);
+      
+return true; // En cas d'erreur, considérer le token comme expiré
+    }
+  }
+
+  // Redirection automatique vers login si token expiré
+  checkTokenAndRedirect(): boolean {
+    if (!this.isAuthenticated() || this.isTokenExpired()) {
+      console.log('authService: Token expiré ou invalide, redirection vers login');
+      this.clearAuth();
+      
+      // Redirection vers la page de login
+      const currentPath = window.location.pathname;
+      const lang = currentPath.split('/')[1] || 'fr';
+
+      window.location.href = `/${lang}/auth/login`;
+      
+      return false;
+    }
+
+    
+return true;
+  }
+
+  // Variable pour stocker l'ID de l'intervalle de validation
+  private validationInterval: NodeJS.Timeout | null = null;
+
+  // Validation périodique du token
+  startTokenValidation(): void {
+    // Éviter de créer plusieurs intervalles
+    if (this.validationInterval) {
+      return;
+    }
+
+    // Vérifier le token toutes les 60 secondes
+    this.validationInterval = setInterval(() => {
+      if (this.isAuthenticated()) {
+        this.checkTokenAndRedirect();
+      }
+    }, 60000);
+  }
+
+  // Arrêter la validation périodique
+  stopTokenValidation(): void {
+    if (this.validationInterval) {
+      clearInterval(this.validationInterval);
+      this.validationInterval = null;
+    }
   }
 }
 

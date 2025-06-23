@@ -1,4 +1,5 @@
 import axios from 'axios';
+import authService from './authService'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
@@ -55,6 +56,14 @@ api.interceptors.response.use(
       }
     } else {
       console.error(`API: Erreur réseau pour ${config?.method?.toUpperCase()} ${config?.url}:`, message);
+    }
+
+    // Si erreur 401 (Unauthorized), le token a probablement expiré
+    if (error.response?.status === 401) {
+      console.log('API: Erreur 401 détectée, token probablement expiré');
+      
+      // Vérifier et rediriger si nécessaire
+      authService.checkTokenAndRedirect();
     }
 
     return Promise.reject(error);

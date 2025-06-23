@@ -215,7 +215,38 @@ const EquipmentPage = () => {
     });
   }
 
+  const validateEquipmentForm = () => {
+    const errors: string[] = []
+
+    // Vérifier les champs obligatoires
+    if (!formData.type?.trim()) {
+      errors.push('Le type d\'équipement est requis')
+    }
+    
+    if (!formData.model?.trim()) {
+      errors.push('Le modèle est requis')
+    }
+    
+    if (!formData.siteId?.trim()) {
+      errors.push('Le site est requis')
+    }
+    
+    if (!formData.status?.trim()) {
+      errors.push('Le statut est requis')
+    }
+
+    return errors
+  }
+
   const handleSubmit = async () => {
+    // Valider le formulaire avant soumission
+    const validationErrors = validateEquipmentForm()
+    
+    if (validationErrors.length > 0) {
+      setError(`Erreurs de validation: ${validationErrors.join(', ')}`)
+      return
+    }
+
     try {
       if (currentEquipment) {
         // Mise à jour de l'équipement
@@ -240,6 +271,7 @@ const EquipmentPage = () => {
       
       handleCloseDialog()
       fetchData() // Recharger la liste
+      setError(null) // Réinitialiser l'erreur
     } catch (err) {
       console.error('Erreur lors de l\'enregistrement de l\'équipement:', err)
       setError('Erreur lors de l\'enregistrement de l\'équipement')
@@ -602,7 +634,12 @@ const EquipmentPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Annuler</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
+          <Button 
+            onClick={handleSubmit} 
+            variant="contained" 
+            color="primary"
+            disabled={!formData.type?.trim() || !formData.model?.trim() || !formData.siteId?.trim() || !formData.status?.trim()}
+          >
             {currentEquipment ? 'Mettre à jour' : 'Ajouter'}
           </Button>
         </DialogActions>

@@ -261,11 +261,48 @@ const SitesPage = () => {
 
 
 
+  const validateSiteForm = () => {
+    const errors: string[] = []
+
+    // Vérifier les champs obligatoires
+    if (!formData.id?.trim()) {
+      errors.push('L\'ID du site est requis')
+    }
+    
+    if (!formData.name?.trim()) {
+      errors.push('Le nom du site est requis')
+    }
+    
+    if (!formData.region?.trim()) {
+      errors.push('La région est requise')
+    }
+
+    // Valider les coordonnées GPS
+    const longitude = Number(formData.longitude)
+    const latitude = Number(formData.latitude)
+
+    if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+      errors.push('La longitude doit être un nombre valide entre -180 et 180')
+    }
+
+    if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+      errors.push('La latitude doit être un nombre valide entre -90 et 90')
+    }
+
+    if (!formData.status?.trim()) {
+      errors.push('Le statut est requis')
+    }
+
+    return errors
+  }
+
   const handleSubmit = async () => {
     try {
-      // Valider les données du formulaire
-      if (!formData.id || !formData.name || !formData.region) {
-        setError('Veuillez remplir tous les champs obligatoires')
+      // Valider le formulaire avant soumission
+      const validationErrors = validateSiteForm()
+      
+      if (validationErrors.length > 0) {
+        setError(`Erreurs de validation: ${validationErrors.join(', ')}`)
         
 return
       }
@@ -273,12 +310,6 @@ return
       // Convertir les coordonnées GPS en nombres
       const longitude = Number(formData.longitude)
       const latitude = Number(formData.latitude)
-
-      if (isNaN(longitude) || isNaN(latitude)) {
-        setError('Les coordonnées doivent être des nombres valides')
-        
-return
-      }
 
       const formDataToSubmit = {
         id: formData.id,

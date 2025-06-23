@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { ApiClient, type ApiResponse } from '@/utils/api'
+import authService from '@/services/authService'
 
 interface UseApiState<T> {
   data: T | null
@@ -107,6 +108,26 @@ export function useApi<T = any>(options: UseApiOptions = {}) {
   const reset = useCallback(() => {
     setState({ data: null, loading: false, error: null })
   }, [])
+
+  // Intercepteur de réponse pour gérer les erreurs d'authentification
+  useEffect(() => {
+    const responseInterceptor = ApiClient.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        // Si erreur 401 (Unauthorized), le token a probablement expiré
+        if (error.response?.status === 401) {
+          console.log('useApi: Erreur 401 détectée, token probablement expiré');
+          authService.checkTokenAndRedirect();
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Nettoyer l'intercepteur lors du démontage du composant
+    return () => {
+      ApiClient.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
 
   return {
     ...state,

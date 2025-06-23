@@ -28,6 +28,9 @@ import '@/app/globals.css'
 // Generated Icon CSS Imports
 import '@assets/iconify-icons/generated-icons.css'
 
+// Component Imports
+import { AuthChecker } from '@/components/AuthChecker'
+
 export const metadata = {
   title: 'Site Database - Gestion des sites de télécommunications',
   description:
@@ -52,8 +55,15 @@ const RootLayout = async (props: ChildrenType & { params: Promise<{ lang: Locale
   return (
     <TranslationWrapper headersList={headersList} lang={params.lang}>
       <html id='__next' lang={params.lang} dir={direction} suppressHydrationWarning>
+        <head>
+          <link rel="icon" type="image/png" sizes="32x32" href="/images/logo.png" />
+          <link rel="icon" type="image/png" sizes="16x16" href="/images/logo.png" />
+          <link rel="shortcut icon" href="/images/logo.png" />
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/logo.png" />
+        </head>
         <body className='flex is-full min-bs-full flex-auto flex-col'>
           <InitColorSchemeScript attribute='data' defaultMode={systemMode} />
+          <AuthChecker />
           {children}
         </body>
       </html>

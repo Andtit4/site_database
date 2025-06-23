@@ -143,7 +143,47 @@ const DepartmentsPage = () => {
     })
   }
 
+  const validateDepartmentForm = () => {
+    const errors: string[] = []
+
+    // Vérifier les champs obligatoires
+    if (!formData.name?.trim()) {
+      errors.push('Le nom du département est requis')
+    }
+    
+    if (!formData.type?.trim()) {
+      errors.push('Le type de département est requis')
+    }
+    
+    if (!formData.responsibleName?.trim()) {
+      errors.push('Le nom du responsable est requis')
+    }
+    
+    if (!formData.contactEmail?.trim()) {
+      errors.push('L\'email de contact est requis')
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
+      errors.push('L\'email de contact n\'est pas valide')
+    }
+
+    if (formData.contactPhone && formData.contactPhone.trim() && !/^\+?[\d\s\-\(\)]+$/.test(formData.contactPhone)) {
+      errors.push('Le numéro de téléphone n\'est pas valide')
+    }
+
+    return errors
+  }
+
   const handleSubmit = async () => {
+    // Valider le formulaire avant soumission
+    const validationErrors = validateDepartmentForm()
+    
+    if (validationErrors.length > 0) {
+      setError(`Erreurs de validation: ${validationErrors.join(', ')}`)
+      setTimeout(() => {
+        setError(null);
+      }, 5000);
+      return
+    }
+
     try {
       if (currentDepartment) {
         // Mise à jour du département
@@ -172,6 +212,7 @@ const DepartmentsPage = () => {
       
       handleCloseDialog();
       fetchDepartments(); 
+      setError(null); // Réinitialiser l'erreur
     } catch (err: any) {
       console.error('Erreur lors de l\'enregistrement du département:', err);
       
